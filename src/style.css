@@ -1,0 +1,76 @@
+@import 'tailwindcss';
+
+@theme inline {
+  --color-surface: var(--surface);
+}
+
+:root {
+  --surface: #ffffff;
+  --fg: #1f2328;
+  --edge: #57606a;
+  --accent: #0969da;
+  color-scheme: light;
+
+  /* Palette GitHub clair : gris + bleu à la place du vert */
+  --color-slate-50: #f6f8fa;
+  --color-slate-100: #eaeef2;
+  --color-slate-200: #d0d7de;
+  --color-slate-300: #afb8c1;
+  --color-slate-400: #8c959f;
+  --color-slate-500: #6e7781;
+  --color-slate-600: #57606a;
+  --color-slate-700: #424a53;
+  --color-slate-800: #1f2328;
+  --color-indigo-50: #ddf4ff;
+  --color-indigo-100: #b6e3ff;
+  --color-indigo-300: #54aeff;
+  --color-indigo-600: #0969da;
+  --color-indigo-700: #0550ae;
+}
+
+/* Thème sombre (par défaut) : palette GitHub Dark, accent bleu. */
+:root:not(.light) {
+  --surface: #161b22;
+  --fg: #e6edf3;
+  --edge: #8b949e;
+  --accent: #388bfd;
+  color-scheme: dark;
+
+  --color-slate-50: #0d1117;
+  --color-slate-100: #21262d;
+  --color-slate-200: #30363d;
+  --color-slate-300: #484f58;
+  --color-slate-400: #6e7681;
+  --color-slate-500: #8b949e;
+  --color-slate-600: #b1bac4;
+  --color-slate-700: #c9d1d9;
+  --color-slate-800: #e6edf3;
+
+  --color-indigo-50: #0d2145;
+  --color-indigo-100: #12305f;
+  --color-indigo-300: #79c0ff;
+  --color-indigo-600: #1f6feb;
+  --color-indigo-700: #388bfd;
+  --color-amber-50: #4c4a48;
+  --color-amber-100: #59564f;
+  --color-amber-200: #6f6e6b;
+  --color-amber-800: #e3b341;
+  --color-red-50: #3b1219;
+  --color-red-600: #f85149;
+}
+
+html, body, #app { height: 100%; margin: 0; }
+body { font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; background: var(--surface); color: var(--fg); }
+input, select { background: var(--surface); color: var(--fg); }
+
+.vue-flow__edge-path { stroke: var(--edge); stroke-width: 1.5; }
+.vue-flow__edge.selected .vue-flow__edge-path { stroke: var(--accent); }
+.vue-flow__edge-textbg { fill: var(--surface); }
+.vue-flow__edge-text { fill: var(--fg); }
+.vue-flow__handle { width: 8px; height: 8px; background: var(--accent); border: 1px solid #fff; opacity: 0; transition: opacity .15s; }
+.vue-flow__node:hover .vue-flow__handle, .vue-flow__node.selected .vue-flow__handle, .vue-flow__handle.connectingfrom { opacity: 1; }
+.vue-flow__node.selected > div { box-shadow: 0 0 0 2px var(--accent); }
+
+:root:not(.light) .vue-flow__controls-button { background: #21262d; color: #e6edf3; border-color: #30363d; fill: #e6edf3; }
+:root:not(.light) .vue-flow__controls-button:hover { background: #30363d; }
+:root:not(.light) .vue-flow__controls { box-shadow: 0 0 2px 1px rgba(0, 0, 0, .5); }
