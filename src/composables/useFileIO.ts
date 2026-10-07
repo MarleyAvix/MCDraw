@@ -8,16 +8,19 @@ function download(href: string, filename: string) {
   a.click()
 }
 
-function downloadBlob(content: string, type: string, filename: string) {
+/** Télécharge un texte ; l'URL n'est libérée qu'après coup (révoquée trop tôt, certains navigateurs annulent le téléchargement). */
+export function downloadBlob(content: string, type: string, filename: string) {
   const url = URL.createObjectURL(new Blob([content], { type }))
   download(url, filename)
-  URL.revokeObjectURL(url)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
 /** Export / import du projet (JSON) et export du canvas en image (PNG / SVG). */
 export function useFileIO() {
   const store = useSchemaStore()
-  const { fitView, vueFlowRef } = useVueFlow({ id: 'mcdraw' })
+  const mcd = useVueFlow('mcdraw')
+  const mld = useVueFlow('mld')
+  const active = () => (store.view === 'mld' ? mld : mcd)
 
   const exportJson = () => downloadBlob(JSON.stringify(store.schema, null, 2), 'application/json', 'mcdraw.json')
 
@@ -25,13 +28,14 @@ export function useFileIO() {
     try {
       store.importSchema(JSON.parse(await file.text()))
       await nextTick()
-      setTimeout(() => fitView({ padding: 0.2 }), 50)
+      setTimeout(() => active().fitView({ padding: 0.2 }), 50)
     } catch (e) {
       alert(e instanceof Error && e.message.startsWith('Fichier') ? e.message : 'Impossible de lire ce fichier JSON.')
     }
   }
 
   async function exportImage(format: 'png' | 'svg') {
+    const { vueFlowRef, fitView } = active()
     const el = vueFlowRef.value
     if (!el) return
     await fitView({ padding: 0.1, duration: 0 })
@@ -45,7 +49,7 @@ export function useFileIO() {
     }
     try {
       const url = format === 'png' ? await toPng(el, opts) : await toSvg(el, opts)
-      download(url, `mcdraw.${format}`)
+      download(url, `${store.view === 'mld' ? 'mld' : 'mcd'}.${format}`)
     } catch {
       alert("L'export de l'image a échoué.")
     }

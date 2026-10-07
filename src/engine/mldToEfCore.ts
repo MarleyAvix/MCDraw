@@ -1,4 +1,5 @@
 import type { MldColumn, MldResult, MldTable } from '../types/schema'
+import { sqlDefault } from './mldToSql'
 
 export interface EfOptions {
   namespace: string
@@ -43,25 +44,32 @@ function csType(sqlType: string): string {
   }
 }
 
+/** Échappe une chaîne pour un littéral C# entre guillemets. */
+const cs = (s: string) => s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+
+const EF_DELETE = { 'NO ACTION': 'NoAction', RESTRICT: 'Restrict', CASCADE: 'Cascade', 'SET NULL': 'SetNull' } as const
+
 const maxLength = (c: MldColumn): number | null => {
   const m = /^VARCHAR\((\d+)\)$/.exec(c.sqlType)
   return m ? Number(m[1]) : null
 }
 
 const precision = (c: MldColumn): string | null => {
-  const m = /^DECIMAL\((\d+),\s*(\d+)\)$/.exec(c.sqlType)
-  return m ? `${m[1]}, ${m[2]}` : null
+  const m = /^DECIMAL\((\d+)(?:,\s*(\d+))?\)$/.exec(c.sqlType)
+  return m ? (m[2] ? `${m[1]}, ${m[2]}` : m[1]) : null
 }
 
 interface Nav {
   fk: MldTable['foreignKeys'][number]
   /** Propriété de navigation côté table qui porte la clé étrangère. */
   name: string
-  /** Collection inverse côté table référencée. */
+  /** Navigation inverse côté table référencée : collection, ou référence simple en 1–1. */
   inverse: string
   host: MldTable
   target: MldTable
   nullable: boolean
+  /** Relation 1–1 : clé étrangère unique, ou confondue avec la clé primaire (héritage, entité faible sans identifiant propre). */
+  oneToOne: boolean
 }
 
 /** Génère un DbContext Entity Framework Core (C#) avec classes d'entités et configuration Fluent API. */
@@ -110,9 +118,11 @@ export function mldToEfCore(mld: MldResult, options: Partial<EfOptions> = {}): s
       }
       const navBase = stem && stem !== className.get(host.name) ? stem : className.get(target.name)!
       const name = unique(host.name, navBase)
-      const inverse = unique(target.name, `${className.get(host.name)}s`)
+      const oneToOne =
+        !!fk.unique || (fk.columns.length === host.primaryKey.length && fk.columns.every((c) => host.primaryKey.includes(c)))
+      const inverse = unique(target.name, `${className.get(host.name)}${oneToOne ? '' : 's'}`)
       const nullable = fk.columns.some((c) => host.columns.find((x) => x.name === c)!.nullable)
-      navs.push({ fk, name, inverse, host, target, nullable })
+      navs.push({ fk, name, inverse, host, target, nullable, oneToOne })
     }
   }
 
@@ -146,7 +156,8 @@ export function mldToEfCore(mld: MldResult, options: Partial<EfOptions> = {}): s
       w(n.nullable ? `    public ${cls2}? ${n.name} { get; set; }` : `    public ${cls2} ${n.name} { get; set; } = null!;`)
     }
     for (const n of inverse) {
-      w(`    public ICollection<${className.get(n.host.name)}> ${n.inverse} { get; set; } = new List<${className.get(n.host.name)}>();`)
+      const cls2 = className.get(n.host.name)!
+      w(n.oneToOne ? `    public ${cls2}? ${n.inverse} { get; set; }` : `    public ICollection<${cls2}> ${n.inverse} { get; set; } = new List<${cls2}>();`)
     }
     w('}')
     w()
@@ -169,24 +180,36 @@ export function mldToEfCore(mld: MldResult, options: Partial<EfOptions> = {}): s
     const p = props.get(t.name)!
     w(`        modelBuilder.Entity<${cls}>(e =>`)
     w('        {')
-    w(`            e.ToTable("${t.name}");`)
+    const checks = t.columns.filter((c) => c.check)
+    if (checks.length) {
+      w(`            e.ToTable("${t.name}", t =>`)
+      w('            {')
+      for (const c of checks) w(`                t.HasCheckConstraint("ck_${t.name}_${c.name}", "${cs(c.check!)}");`)
+      w('            });')
+    } else w(`            e.ToTable("${t.name}");`)
     if (t.primaryKey.length === 1) w(`            e.HasKey(x => x.${p.get(t.primaryKey[0])});`)
     else if (t.primaryKey.length > 1) w(`            e.HasKey(x => new { ${t.primaryKey.map((k) => `x.${p.get(k)}`).join(', ')} });`)
     for (const c of t.columns) {
       const chain = [`.HasColumnName("${c.name}")`]
       const len = maxLength(c)
       const prec = precision(c)
+      if (!c.nullable && !t.primaryKey.includes(c.name)) chain.push('.IsRequired()')
       if (len) chain.push(`.HasMaxLength(${len})`)
       if (prec) chain.push(`.HasPrecision(${prec})`)
+      if (c.defaultValue) chain.push(`.HasDefaultValueSql("${cs(sqlDefault(c.defaultValue, c, 'standard'))}")`)
       if (t.primaryKey.length > 1 && t.primaryKey.includes(c.name) && csType(c.sqlType) === 'int') chain.push('.ValueGeneratedNever()')
       w(`            e.Property(x => x.${p.get(c.name)})${chain.join('')};`)
     }
+    const keyExpr = (cols: string[]) =>
+      cols.length === 1 ? `x => x.${p.get(cols[0])}` : `x => new { ${cols.map((c) => `x.${p.get(c)}`).join(', ')} }`
+    for (const c of t.columns.filter((x) => x.unique)) w(`            e.HasIndex(x => x.${p.get(c.name)}).IsUnique();`)
+    for (const fk of t.foreignKeys.filter((f) => f.unique && f.columns.length > 1)) w(`            e.HasIndex(${keyExpr(fk.columns)}).IsUnique();`)
     for (const n of navs.filter((x) => x.host === t)) {
-      const fkExpr =
-        n.fk.columns.length === 1
-          ? `x => x.${p.get(n.fk.columns[0])}`
-          : `x => new { ${n.fk.columns.map((c) => `x.${p.get(c)}`).join(', ')} }`
-      w(`            e.HasOne(x => x.${n.name}).WithMany(y => y.${n.inverse}).HasForeignKey(${fkExpr}).OnDelete(DeleteBehavior.Restrict);`)
+      const fkExpr = keyExpr(n.fk.columns)
+      const rel = n.oneToOne
+        ? `WithOne(y => y.${n.inverse}).HasForeignKey<${cls}>(${fkExpr})`
+        : `WithMany(y => y.${n.inverse}).HasForeignKey(${fkExpr})`
+      w(`            e.HasOne(x => x.${n.name}).${rel}.OnDelete(DeleteBehavior.${EF_DELETE[n.fk.onDelete ?? 'RESTRICT']});`)
     }
     w('        });')
     if (ti < tables.length - 1) w()

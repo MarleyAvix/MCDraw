@@ -5,6 +5,7 @@ import { useSchemaStore } from '../../stores/schemaStore'
 import BaseModal from '../modals/BaseModal.vue'
 import { DIALECT_LABELS, SQL_DIALECTS } from '../../engine/mldToSql'
 import { EF_DEFAULTS, mldToEfCore } from '../../engine/mldToEfCore'
+import { downloadBlob } from '../../composables/useFileIO'
 
 const store = useSchemaStore()
 const copied = ref(false)
@@ -15,11 +16,13 @@ const code = computed(() => (tab.value === 'sql' ? store.sql : mldToEfCore(store
 
 const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
-// Coloration basique : commentaires, mots-clés, types, nombres.
+// Coloration basique. Groupes : 1 commentaire, 2 mot-clé, 3 type, 4 nombre, 5 chaîne, 6 identifiant délimité
+// (reconnu pour qu'un mot réservé entre délimiteurs, ex. `order`, ne soit pas coloré comme un mot-clé).
 const SQL_TOKEN =
-  /(--[^\n]*)|\b(CREATE|TABLE|PRIMARY|FOREIGN|KEY|REFERENCES|NOT|NULL|CONSTRAINT|ALTER|ADD|AUTO_INCREMENT|AUTOINCREMENT|IDENTITY|GENERATED|ALWAYS|AS)\b|\b(INT|INTEGER|VARCHAR|NVARCHAR|TEXT|DECIMAL|NUMERIC|FLOAT|REAL|DOUBLE PRECISION|BOOLEAN|BIT|DATE|DATETIME|DATETIME2|TIMESTAMP|SERIAL|MAX)\b|\b(\d+)\b/g
+  /(--[^\n]*)|\b(CREATE|TABLE|INDEX|PRIMARY|FOREIGN|KEY|REFERENCES|NOT|NULL|CONSTRAINT|ALTER|ADD|UNIQUE|CHECK|DEFAULT|ON|DELETE|UPDATE|CASCADE|SET|RESTRICT|NO|ACTION|WHERE|IS|AND|AUTO_INCREMENT|AUTOINCREMENT|IDENTITY|GENERATED|ALWAYS|AS|TRUE|FALSE|CURRENT_TIMESTAMP|CURRENT_DATE)\b|\b(INT|INTEGER|VARCHAR|NVARCHAR|TEXT|DECIMAL|NUMERIC|FLOAT|REAL|DOUBLE PRECISION|BOOLEAN|BIT|DATE|DATETIME|DATETIME2|TIMESTAMP|SERIAL|MAX)\b|\b(\d+)\b|('(?:[^'\n]|'')*')|("[^"\n]*"|`[^`\n]*`|\[[^\]\n]*\])/g
 const CS_TOKEN =
   /(\/\/[^\n]*)|\b(using|namespace|public|class|protected|override|void|get|set|new|null|return|var)\b|\b(int|string|decimal|double|bool|DateTime|ICollection|List|DbSet|DbContext|DbContextOptions|ModelBuilder|DeleteBehavior)\b|\b(\d+)\b|("[^"\n]*")/g
+const TOKEN_CLASS = ['', 'text-slate-500 italic', 'text-indigo-300 font-semibold', 'text-emerald-300', 'text-amber-300', 'text-sky-300', '']
 
 const highlighted = computed(() => {
   const src = code.value
@@ -28,16 +31,8 @@ const highlighted = computed(() => {
   let last = 0
   for (const m of src.matchAll(re)) {
     out += escapeHtml(src.slice(last, m.index))
-    const cls = m[1]
-      ? 'text-slate-500 italic'
-      : m[2]
-        ? 'text-indigo-300 font-semibold'
-        : m[3]
-          ? 'text-emerald-300'
-          : m[5]
-            ? 'text-sky-300'
-            : 'text-amber-300'
-    out += `<span class="${cls}">${escapeHtml(m[0])}</span>`
+    const cls = TOKEN_CLASS[m.findIndex((g, i) => i > 0 && g !== undefined)]
+    out += cls ? `<span class="${cls}">${escapeHtml(m[0])}</span>` : escapeHtml(m[0])
     last = m.index! + m[0].length
   }
   return out + escapeHtml(src.slice(last))
@@ -53,13 +48,8 @@ async function copy() {
   }
 }
 
-function download() {
-  const isSql = tab.value === 'sql'
-  const url = URL.createObjectURL(new Blob([code.value], { type: 'text/plain' }))
-  const a = Object.assign(document.createElement('a'), { href: url, download: isSql ? 'mcdraw.sql' : `${ef.value.contextName}.cs` })
-  a.click()
-  URL.revokeObjectURL(url)
-}
+const download = () =>
+  downloadBlob(code.value, 'text/plain', tab.value === 'sql' ? 'mcdraw.sql' : `${ef.value.contextName}.cs`)
 
 const tabClass = (t: string) =>
   `px-3 py-1.5 text-sm font-medium border-b-2 -mb-px ${tab.value === t ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`

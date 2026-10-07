@@ -4,6 +4,8 @@ import { useSpawnPoint } from './composables/useSpawnPoint'
 import { Database } from 'lucide-vue-next'
 import { useSchemaStore } from './stores/schemaStore'
 import FlowCanvas from './components/canvas/FlowCanvas.vue'
+import MldDiagram from './components/canvas/MldDiagram.vue'
+import SearchBox from './components/panels/SearchBox.vue'
 import Toolbar from './components/panels/Toolbar.vue'
 import MldPanel from './components/panels/MldPanel.vue'
 import SqlExportModal from './components/panels/SqlExportModal.vue'
@@ -17,6 +19,7 @@ const spawnPoint = useSpawnPoint()
 function onKey(e: KeyboardEvent) {
   const t = e.target as HTMLElement | null
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return
+  if (store.view !== 'mcd') return
   if (document.querySelector('[role="dialog"], .fixed.inset-0')) return // modale ouverte
   const k = e.key.toLowerCase()
   if (!(e.ctrlKey || e.metaKey)) {
@@ -55,7 +58,11 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
     </header>
 
     <main class="grid min-h-0 flex-1 grid-cols-[1fr_340px]">
-      <FlowCanvas />
+      <div class="relative h-full min-w-0">
+        <SearchBox />
+        <FlowCanvas v-if="store.view === 'mcd'" />
+        <MldDiagram v-else />
+      </div>
       <MldPanel />
     </main>
 

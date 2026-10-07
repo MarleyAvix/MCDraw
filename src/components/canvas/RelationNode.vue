@@ -3,10 +3,12 @@ import { computed, nextTick, ref } from 'vue'
 import { Handle, Position } from '@vue-flow/core'
 import { AlertTriangle } from 'lucide-vue-next'
 import { useSchemaStore } from '../../stores/schemaStore'
+import AttributeRows from './AttributeRows.vue'
 import type { Relation } from '../../types/schema'
 
 const props = defineProps<{ data: Relation }>()
 const store = useSchemaStore()
+const hit = computed(() => store.highlightId === props.data.id)
 const issues = computed(() => store.issues[props.data.id] ?? [])
 
 const editing = ref(false)
@@ -16,6 +18,7 @@ async function startRename() {
   draft.value = props.data.name
   editing.value = true
   await nextTick()
+  input.value?.focus()
   input.value?.select()
 }
 function commit() {
@@ -27,7 +30,9 @@ function commit() {
 </script>
 
 <template>
-  <div class="relative flex min-h-16 min-w-32 flex-col items-center justify-center rounded-[50%] border-2 border-slate-700 bg-amber-50 px-6 py-3 text-center text-sm shadow-sm">
+  <div
+    :class="[hit ? 'search-hit' : '', data.attributes.length ? 'rounded-2xl px-4 py-2' : 'rounded-[50%] px-6 py-3']"
+    class="group/node relative flex min-h-16 min-w-32 flex-col items-center justify-center border-2 border-slate-700 bg-amber-50 text-center text-sm shadow-sm">
     <span
       v-if="issues.length"
       class="absolute right-1 top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-white shadow"
@@ -52,9 +57,7 @@ function commit() {
       />
       <template v-else>{{ data.name || '(sans nom)' }}</template>
     </div>
-    <template v-if="data.attributes.length">
-      <hr class="my-1 w-full border-slate-400" />
-      <div v-for="a in data.attributes" :key="a.id" class="text-xs">{{ a.name || '…' }}</div>
-    </template>
+    <hr v-if="data.attributes.length" class="my-1.5 w-full border-t-2 border-slate-600" />
+    <AttributeRows :node-id="data.id" :attributes="data.attributes" kind="relation" class="w-full text-left text-xs" />
   </div>
 </template>

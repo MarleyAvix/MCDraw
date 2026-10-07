@@ -8,7 +8,7 @@ type Layout = { positions: Record<string, { x: number; y: number }>; width: numb
 /** Dispose automatiquement entités et associations avec dagre, dans le sens qui épouse le mieux la zone visible. */
 export function useAutoLayout() {
   const store = useSchemaStore()
-  const { getNodes, fitView, dimensions } = useVueFlow({ id: 'mcdraw' })
+  const { getNodes, fitView, dimensions } = useVueFlow('mcdraw')
 
   function run(rankdir: 'LR' | 'TB', size: Map<string, Size>): Layout {
     const g = new dagre.graphlib.Graph()

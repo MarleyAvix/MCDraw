@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { Handle, Position } from '@vue-flow/core'
 import { computed, nextTick, ref } from 'vue'
-import { AlertTriangle, KeyRound } from 'lucide-vue-next'
+import { AlertTriangle } from 'lucide-vue-next'
 import { useSchemaStore } from '../../stores/schemaStore'
 import type { Entity } from '../../types/schema'
-import { sqlTypeOf } from '../../engine/meriseToMld'
+import AttributeRows from './AttributeRows.vue'
 
 const props = defineProps<{ data: Entity }>()
 const store = useSchemaStore()
+const hit = computed(() => store.highlightId === props.data.id)
+const isWeak = computed(() => store.weakEntityIds.has(props.data.id))
 const issues = computed(() => store.issues[props.data.id] ?? [])
 
 // Renommage direct par double-clic sur le titre.
@@ -18,6 +20,7 @@ async function startRename() {
   draft.value = props.data.name
   editing.value = true
   await nextTick()
+  input.value?.focus()
   input.value?.select()
 }
 function commit() {
@@ -29,7 +32,11 @@ function commit() {
 </script>
 
 <template>
-  <div class="relative min-w-40 rounded-md border-2 border-slate-700 bg-surface text-sm shadow-sm">
+  <div
+    class="group/node relative min-w-40 rounded-md border-slate-700 bg-surface text-sm shadow-sm"
+    :class="[isWeak ? 'border-double border-[6px]' : 'border-2', hit ? 'search-hit' : '']"
+    :title="isWeak ? 'Entité faible : identifiée relativement à une autre entité (CIF)' : undefined"
+  >
     <span
       v-if="issues.length"
       class="absolute -right-2 -top-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-white shadow"
@@ -58,13 +65,8 @@ function commit() {
       />
       <template v-else>{{ data.name || '(sans nom)' }}</template>
     </div>
-    <ul class="px-3 py-1.5">
-      <li v-for="a in data.attributes" :key="a.id" class="flex items-center gap-2 py-0.5">
-        <KeyRound v-if="a.isPrimaryKey" :size="12" class="shrink-0 text-amber-600" />
-        <span class="flex-1" :class="a.isPrimaryKey ? 'font-semibold underline' : ''">{{ a.name || '…' }}</span>
-        <span class="text-[10px] text-slate-400">{{ sqlTypeOf(a) }}</span>
-      </li>
-      <li v-if="!data.attributes.length" class="py-0.5 text-xs italic text-slate-400">Aucun attribut</li>
-    </ul>
+    <div class="px-3 py-1.5">
+      <AttributeRows :node-id="data.id" :attributes="data.attributes" kind="entity" />
+    </div>
   </div>
 </template>

@@ -1,12 +1,41 @@
 import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import type { Edge, Node } from '@vue-flow/core'
-import { meriseToMld } from '../engine/meriseToMld'
+import { meriseToMld, normalizeSize, slug } from '../engine/meriseToMld'
 import { mldToSql, type SqlDialect } from '../engine/mldToSql'
-import type { Attribute, Cardinality, DataType, Entity, Link, MeriseSchema, Relation } from '../types/schema'
+import { rootOf } from '../engine/inheritance'
+import { sanitizeSchema } from '../engine/sanitize'
+import type { Attribute, Cardinality, DataType, Entity, InheritanceStrategy, Link, MeriseSchema, Relation } from '../types/schema'
 
 const STORAGE_KEY = 'mcdraw:schema:v1'
 const uid = () => Math.random().toString(36).slice(2, 10)
+
+type Pt = { x: number; y: number }
+/** Côté (t, r, b, l) de `from` qui fait face à `to`. */
+const sideToward = (from: Pt, to: Pt) => {
+  const dx = to.x - from.x
+  const dy = to.y - from.y
+  return Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'r' : 'l') : dy >= 0 ? 'b' : 't'
+}
+
+/** Problèmes propres à une liste d'attributs : nom manquant, doublons (même nom SQL), taille invalide. */
+function attributeIssues(list: Attribute[]): string[] {
+  const out: string[] = []
+  if (list.some((a) => !a.name.trim())) out.push('Attribut sans nom')
+  const seen = new Set<string>()
+  const dup = new Set<string>()
+  for (const a of list) {
+    if (!a.name.trim()) continue
+    const k = slug(a.name)
+    if (seen.has(k)) dup.add(a.name.trim())
+    seen.add(k)
+  }
+  if (dup.size) out.push(`Attribut en double : ${[...dup].join(', ')}`)
+  for (const a of list) {
+    if (normalizeSize(a) === null) out.push(`Taille invalide pour « ${a.name || '…'} » : ${a.size} (ex : ${a.type === 'DECIMAL' ? '10,2' : '255'})`)
+  }
+  return out
+}
 
 export const newAttribute = (over: Partial<Attribute> = {}): Attribute => ({
   id: uid(),
@@ -79,6 +108,27 @@ export const EXAMPLES: ExampleDef[] = [
     },
   },
   {
+    id: 'cif',
+    label: 'Commande et lignes (entité faible, CIF)',
+    build() {
+      const client: Entity = { id: uid(), name: 'Client', x: 40, y: 60, attributes: attrs([['id_client', 'INT', true], ['nom']]) }
+      const commande: Entity = { id: uid(), name: 'Commande', x: 480, y: 60, attributes: attrs([['id_commande', 'INT', true], ['date_commande', 'DATE']]) }
+      const ligne: Entity = { id: uid(), name: 'Ligne', x: 480, y: 340, attributes: attrs([['no_ligne', 'INT', true], ['quantite', 'INT']]) }
+      const passer: Relation = { id: uid(), name: 'Passer', x: 270, y: 90, attributes: [] }
+      const contenir: Relation = { id: uid(), name: 'Contenir', x: 500, y: 215, attributes: [] }
+      return {
+        entities: [client, commande, ligne],
+        relations: [passer, contenir],
+        links: [
+          link(passer.id, client.id, '0,n', ['l', 'r']),
+          link(passer.id, commande.id, '1,1', ['r', 'l']),
+          link(contenir.id, commande.id, '0,n', ['t', 'b']),
+          { ...link(contenir.id, ligne.id, '1,1', ['b', 't']), identifying: true },
+        ],
+      }
+    },
+  },
+  {
     id: 'employes',
     label: 'Employés (association réflexive)',
     build() {
@@ -94,6 +144,16 @@ export const EXAMPLES: ExampleDef[] = [
       }
     },
   },
+  {
+    id: 'heritage',
+    label: 'Véhicules (héritage « est un »)',
+    build() {
+      const vehicule: Entity = { id: uid(), name: 'Vehicule', x: 260, y: 40, inheritance: 'class', attributes: attrs([['id_vehicule', 'INT', true], ['immatriculation', 'VARCHAR', false, '15'], ['marque']]) }
+      const voiture: Entity = { id: uid(), name: 'Voiture', x: 40, y: 330, parentId: vehicule.id, attributes: attrs([['nb_portes', 'INT']]) }
+      const camion: Entity = { id: uid(), name: 'Camion', x: 480, y: 330, parentId: vehicule.id, attributes: attrs([['charge_max', 'DECIMAL', false, '8,2']]) }
+      return { entities: [vehicule, voiture, camion], relations: [], links: [] }
+    },
+  },
 ]
 
 export const useSchemaStore = defineStore('schema', () => {
@@ -105,6 +165,10 @@ export const useSchemaStore = defineStore('schema', () => {
   const editingRelationId = ref<string | null>(null)
   const showSqlModal = ref(false)
   const selection = ref<string[]>([])
+  const view = ref<'mcd' | 'mld'>('mcd')
+  const highlightId = ref<string | null>(null)
+  let highlightTimer: ReturnType<typeof setTimeout> | undefined
+  const mldRelayout = ref(0)
   let clipboard: MeriseSchema | null = null
   let pasteCount = 0
   const sqlOptions = ref<{ dialect: SqlDialect; autoIncrement: boolean }>({ dialect: 'mysql', autoIncrement: true })
@@ -115,6 +179,11 @@ export const useSchemaStore = defineStore('schema', () => {
     relations: relations.value,
     links: links.value,
   }))
+  const entityById = computed(() => new Map(entities.value.map((e) => [e.id, e])))
+  /** Entités faibles : identifiées relativement à une autre entité (patte 1,1 marquée CIF). */
+  const weakEntityIds = computed(
+    () => new Set(links.value.filter((l) => l.identifying && l.cardinality === '1,1').map((l) => l.entityId)),
+  )
   /** Problèmes de conception par nœud, affichés directement sur le canvas. */
   const issues = computed(() => {
     const out: Record<string, string[]> = {}
@@ -124,16 +193,27 @@ export const useSchemaStore = defineStore('schema', () => {
       const k = n.name.trim().toLowerCase()
       names.set(k, (names.get(k) ?? 0) + 1)
     }
-    const ids = new Set(entities.value.map((e) => e.id))
+    const byId = entityById.value
     for (const e of entities.value) {
-      if (!e.attributes.some((a) => a.isPrimaryKey)) add(e.id, 'Aucun identifiant (clé primaire)')
+      const pks = e.attributes.filter((a) => a.isPrimaryKey).length
+      const inherited = !!e.parentId && byId.has(e.parentId)
+      if (pks === 0 && !inherited && !weakEntityIds.value.has(e.id)) add(e.id, 'Aucun identifiant : soulignez un attribut')
+      if (inherited && pks > 0) add(e.id, "L'identifiant est hérité de la classe mère : retirez celui-ci")
+      if (e.parentId && rootOf(e.id, byId) === null) add(e.id, 'Héritage circulaire')
+      if (pks > 1) add(e.id, 'Plusieurs identifiants : un seul est permis par entité')
       if (!e.name.trim()) add(e.id, 'Nom manquant')
       if ((names.get(e.name.trim().toLowerCase()) ?? 0) > 1) add(e.id, 'Nom en double')
-      if (e.attributes.some((a) => !a.name.trim())) add(e.id, 'Attribut sans nom')
+      for (const msg of attributeIssues(e.attributes)) add(e.id, msg)
     }
     for (const r of relations.value) {
-      const n = links.value.filter((l) => l.relationId === r.id && ids.has(l.entityId)).length
+      for (const msg of attributeIssues(r.attributes)) add(r.id, msg)
+      const n = links.value.filter((l) => l.relationId === r.id && byId.has(l.entityId)).length
       if (n < 2) add(r.id, n ? 'Une seule patte : reliez au moins deux entités' : 'Association non reliée')
+      const cif = links.value.filter((l) => l.relationId === r.id && l.identifying)
+      if (cif.length && n !== 2) add(r.id, 'Identifiant relatif (CIF) : réservé aux associations binaires')
+      if (cif.length && new Set(links.value.filter((l) => l.relationId === r.id).map((l) => l.entityId)).size < 2) {
+        add(r.id, 'Identifiant relatif (CIF) impossible sur une association réflexive')
+      }
       if (!r.name.trim()) add(r.id, 'Nom manquant')
       if ((names.get(r.name.trim().toLowerCase()) ?? 0) > 1) add(r.id, 'Nom en double')
     }
@@ -142,24 +222,58 @@ export const useSchemaStore = defineStore('schema', () => {
   const mld = computed(() => meriseToMld(schema.value))
   const sql = computed(() => mldToSql(mld.value, sqlOptions.value))
 
+  /** Classe racine de la hiérarchie « est un » d'une entité. */
+  const inheritanceRoot = (id: string): Entity | undefined => {
+    const r = rootOf(id, entityById.value)
+    return r ? entityById.value.get(r) : undefined
+  }
+  const childrenOfEntity = (id: string) => entities.value.filter((e) => e.parentId === id)
+
   // --- Synchronisation avec Vue Flow ---------------------------------
   const nodes = computed<Node[]>(() => [
     ...entities.value.map((e) => ({ id: e.id, type: 'entity', position: { x: e.x, y: e.y }, data: e, selected: selection.value.includes(e.id) })),
     ...relations.value.map((r) => ({ id: r.id, type: 'relation', position: { x: r.x, y: r.y }, data: r, selected: selection.value.includes(r.id) })),
   ])
-  const edges = computed<Edge[]>(() =>
-    links.value.map((l) => ({
+  const isaEdges = computed<Edge[]>(() =>
+    entities.value.flatMap((e) => {
+      const p = e.parentId ? entityById.value.get(e.parentId) : undefined
+      if (!p || p.id === e.id) return []
+      return [{
+        id: `isa:${e.id}`,
+        source: e.id,
+        target: p.id,
+        // côté d'accroche selon la position relative des nœuds (tailles approximatives)
+        sourceHandle: sideToward(e, p),
+        targetHandle: sideToward(p, e),
+        type: 'isa',
+        data: { strategy: inheritanceRoot(e.id)?.inheritance ?? 'class' },
+      }]
+    }),
+  )
+  const edges = computed<Edge[]>(() => [
+    ...isaEdges.value,
+    ...links.value.map((l) => {
+      // Traits parallèles quand une même entité est reliée plusieurs fois à la même association (réflexive).
+      const twins = links.value.filter((o) => o.relationId === l.relationId && o.entityId === l.entityId)
+      return {
       id: l.id,
       source: l.relationId,
       target: l.entityId,
       sourceHandle: l.relationHandle,
       targetHandle: l.entityHandle,
       type: 'link',
-      data: { linkId: l.id, cardinality: l.cardinality, role: l.role },
-    })),
-  )
+      data: { linkId: l.id, cardinality: l.cardinality, role: l.role, identifying: !!l.identifying, index: twins.indexOf(l), count: twins.length },
+    }}),
+  ])
 
   // --- Actions ---------------------------------------------------------
+  /** Fait clignoter un nœud (résultat de recherche) pendant un court instant. */
+  function flash(id: string) {
+    clearTimeout(highlightTimer)
+    highlightId.value = id
+    highlightTimer = setTimeout(() => (highlightId.value = null), 2200)
+  }
+
   function addEntity(x: number, y: number): Entity {
     const n = entities.value.length + 1
     const entity: Entity = {
@@ -185,19 +299,13 @@ export const useSchemaStore = defineStore('schema', () => {
     const b = entities.value.find((e) => e.id === targetId)
     if (!a || !b) return
     // Tailles approximatives des nœuds pour viser leur centre.
-    const cx = (e: Entity) => e.x + 90
-    const cy = (e: Entity) => e.y + 50
+    const center = (e: Entity) => ({ x: e.x + 90, y: e.y + 50 })
     const reflexive = a.id === b.id
-    const x = reflexive ? cx(a) + 220 : (cx(a) + cx(b)) / 2 - 65
-    const y = reflexive ? cy(a) - 32 : (cy(a) + cy(b)) / 2 - 32
+    const x = reflexive ? center(a).x + 220 : (center(a).x + center(b).x) / 2 - 65
+    const y = reflexive ? center(a).y - 32 : (center(a).y + center(b).y) / 2 - 32
     const relation = addRelation(x, y)
-    const handleToward = (from: Entity, to: Entity) =>
-      Math.abs(cx(to) - cx(from)) >= Math.abs(cy(to) - cy(from)) ? (cx(to) >= cx(from) ? 'r' : 'l') : cy(to) >= cy(from) ? 'b' : 't'
-    const relHandleToward = (rel: Relation, to: Entity) => {
-      const dx = cx(to) - (rel.x + 65)
-      const dy = cy(to) - (rel.y + 32)
-      return Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'r' : 'l') : dy >= 0 ? 'b' : 't'
-    }
+    const relCenter = { x: relation.x + 65, y: relation.y + 32 }
+    const handleToward = (from: Entity, to: Entity) => sideToward(center(from), center(to))
     if (reflexive) {
       links.value.push(
         { id: uid(), relationId: relation.id, entityId: a.id, cardinality: '0,n', relationHandle: 't', entityHandle: 'r' },
@@ -205,8 +313,8 @@ export const useSchemaStore = defineStore('schema', () => {
       )
     } else {
       links.value.push(
-        { id: uid(), relationId: relation.id, entityId: a.id, cardinality: '0,n', relationHandle: relHandleToward(relation, a), entityHandle: handles.source ?? handleToward(a, b) },
-        { id: uid(), relationId: relation.id, entityId: b.id, cardinality: '0,n', relationHandle: relHandleToward(relation, b), entityHandle: handles.target ?? handleToward(b, a) },
+        { id: uid(), relationId: relation.id, entityId: a.id, cardinality: '0,n', relationHandle: sideToward(relCenter, center(a)), entityHandle: handles.source ?? handleToward(a, b) },
+        { id: uid(), relationId: relation.id, entityId: b.id, cardinality: '0,n', relationHandle: sideToward(relCenter, center(b)), entityHandle: handles.target ?? handleToward(b, a) },
       )
     }
     editingRelationId.value = relation.id
@@ -217,15 +325,82 @@ export const useSchemaStore = defineStore('schema', () => {
     if (e) Object.assign(e, patch)
   }
 
-  function updateRelation(id: string, patch: Partial<Pick<Relation, 'name' | 'attributes'>>) {
+  /** Définit l'entité mère (« est un ») ; refuse une boucle (soi-même ou un descendant). */
+  function setParent(id: string, parentId: string | undefined): boolean {
+    const e = entities.value.find((x) => x.id === id)
+    if (!e) return false
+    if (parentId) {
+      const byId = new Map(entities.value.map((x) => [x.id, x]))
+      if (!byId.has(parentId)) return false
+      for (let cur = byId.get(parentId); cur; cur = cur.parentId ? byId.get(cur.parentId) : undefined) {
+        if (cur.id === id) return false
+      }
+    }
+    e.parentId = parentId || undefined
+    return true
+  }
+
+  function setInheritance(id: string, strategy: InheritanceStrategy) {
+    const e = entities.value.find((x) => x.id === id)
+    if (e) e.inheritance = strategy
+  }
+
+  function updateRelation(id: string, patch: Partial<Pick<Relation, 'name' | 'attributes' | 'tableName'>>) {
     const r = relations.value.find((x) => x.id === id)
     if (r) Object.assign(r, patch)
   }
 
+  // --- Édition rapide des attributs (depuis le nœud) -----------------
+  const attributesOf = (nodeId: string): Attribute[] | undefined =>
+    (entities.value.find((e) => e.id === nodeId) ?? relations.value.find((r) => r.id === nodeId))?.attributes
+
+  function addAttribute(nodeId: string): Attribute | undefined {
+    const list = attributesOf(nodeId)
+    if (!list) return
+    // Nom par défaut non vide : l'ajout reste visible même si l'utilisateur ne tape rien.
+    let n = list.length + 1
+    while (list.some((a) => a.name === `attribut_${n}`)) n++
+    const attr = newAttribute({ name: `attribut_${n}` })
+    list.push(attr)
+    return attr
+  }
+
+  function updateAttribute(nodeId: string, attrId: string, patch: Partial<Omit<Attribute, 'id'>>) {
+    const list = attributesOf(nodeId)
+    const a = list?.find((x) => x.id === attrId)
+    if (!a) return
+    // Un seul identifiant par entité : activer une clé retire les autres.
+    if (patch.isPrimaryKey && entities.value.some((e) => e.id === nodeId)) {
+      for (const other of list!) if (other !== a) other.isPrimaryKey = false
+    }
+    Object.assign(a, patch)
+  }
+
+  function removeAttribute(nodeId: string, attrId: string) {
+    const list = attributesOf(nodeId)
+    const i = list?.findIndex((x) => x.id === attrId) ?? -1
+    if (list && i >= 0) list.splice(i, 1)
+  }
+
+  function moveAttribute(nodeId: string, from: number, to: number) {
+    const list = attributesOf(nodeId)
+    if (!list || from === to || from < 0 || from >= list.length) return
+    const [a] = list.splice(from, 1)
+    list.splice(Math.max(0, Math.min(to, list.length)), 0, a)
+  }
+
   function removeNode(id: string) {
+    // Les filles d'une entité supprimée remontent d'un cran (elles héritent de l'éventuelle grand-mère).
+    const gone = entities.value.find((e) => e.id === id)
+    for (const e of entities.value) {
+      if (e.parentId !== id) continue
+      e.parentId = gone?.parentId
+      if (!gone?.parentId) e.inheritance = gone?.inheritance // devenue racine, elle reprend la stratégie
+    }
     entities.value = entities.value.filter((e) => e.id !== id)
     relations.value = relations.value.filter((r) => r.id !== id)
     links.value = links.value.filter((l) => l.entityId !== id && l.relationId !== id)
+    selection.value = selection.value.filter((s) => s !== id)
     if (editingEntityId.value === id) editingEntityId.value = null
     if (editingRelationId.value === id) editingRelationId.value = null
   }
@@ -264,6 +439,11 @@ export const useSchemaStore = defineStore('schema', () => {
       return { ...n, id, x: n.x + shift, y: n.y + shift }
     }
     const newEntities = copy.entities.map((e) => ({ ...fresh(e), attributes: e.attributes.map((a) => ({ ...a, id: uid() })) }))
+    // « est un » : conservé si la mère est copiée aussi, sinon la copie devient une entité indépendante.
+    for (const e of newEntities) {
+      const old = copy.entities.find((o) => idMap.get(o.id) === e.id)
+      e.parentId = old?.parentId ? idMap.get(old.parentId) : undefined
+    }
     const newRelations = copy.relations.map((r) => ({ ...fresh(r), attributes: r.attributes.map((a) => ({ ...a, id: uid() })) }))
     entities.value.push(...newEntities)
     relations.value.push(...newRelations)
@@ -283,18 +463,13 @@ export const useSchemaStore = defineStore('schema', () => {
   }
 
   /** Réattribue les points d'accroche des pattes selon la position relative des centres (après une mise en page). */
-  function rerouteLinks(centers: Record<string, { x: number; y: number }>) {
-    const side = (from: { x: number; y: number }, to: { x: number; y: number }) => {
-      const dx = to.x - from.x
-      const dy = to.y - from.y
-      return Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'r' : 'l') : dy >= 0 ? 'b' : 't'
-    }
+  function rerouteLinks(centers: Record<string, Pt>) {
     for (const l of links.value) {
       const e = centers[l.entityId]
       const r = centers[l.relationId]
       if (!e || !r) continue
-      l.entityHandle = side(e, r)
-      l.relationHandle = side(r, e)
+      l.entityHandle = sideToward(e, r)
+      l.relationHandle = sideToward(r, e)
     }
   }
 
@@ -309,9 +484,15 @@ export const useSchemaStore = defineStore('schema', () => {
     })
   }
 
-  function updateLink(id: string, patch: Partial<Pick<Link, 'cardinality' | 'role'>>) {
+  function updateLink(id: string, patch: Partial<Pick<Link, 'cardinality' | 'role' | 'identifying' | 'onDelete' | 'onUpdate'>>) {
     const l = links.value.find((x) => x.id === id)
-    if (l) Object.assign(l, patch)
+    if (!l) return
+    Object.assign(l, patch)
+    // L'identifiant relatif n'a de sens que sur une patte 1,1, et une seule par association.
+    if (l.cardinality !== '1,1') l.identifying = false
+    if (l.identifying) {
+      for (const o of links.value) if (o.relationId === l.relationId && o !== l) o.identifying = false
+    }
   }
 
   function removeLink(id: string) {
@@ -323,20 +504,13 @@ export const useSchemaStore = defineStore('schema', () => {
     relations.value = s.relations
     links.value = s.links
     editingEntityId.value = editingRelationId.value = null
+    const alive = new Set([...s.entities, ...s.relations].map((n) => n.id))
+    selection.value = selection.value.filter((id) => alive.has(id))
   }
 
-  /** Importe un schéma JSON (validation minimale de la structure). Lève une Error si invalide. */
+  /** Importe un schéma JSON, validé et normalisé. Lève une Error si la structure est inutilisable. */
   function importSchema(raw: unknown) {
-    const s = raw as Partial<MeriseSchema> | null
-    if (!s || !Array.isArray(s.entities) || !Array.isArray(s.relations) || !Array.isArray(s.links)) {
-      throw new Error('Fichier invalide : entités, associations ou pattes manquantes.')
-    }
-    const ids = new Set([...s.entities, ...s.relations].map((n) => n.id))
-    load({
-      entities: s.entities.map((e) => ({ ...e, attributes: e.attributes ?? [], x: Number(e.x) || 0, y: Number(e.y) || 0 })),
-      relations: s.relations.map((r) => ({ ...r, attributes: r.attributes ?? [], x: Number(r.x) || 0, y: Number(r.y) || 0 })),
-      links: s.links.filter((l) => ids.has(l.relationId) && ids.has(l.entityId)),
-    })
+    load(sanitizeSchema(raw, uid))
   }
 
   const reset = () => load({ entities: [], relations: [], links: [] })
@@ -347,13 +521,9 @@ export const useSchemaStore = defineStore('schema', () => {
 
   // --- Persistance locale ---------------------------------------------
   try {
+    // Une sauvegarde d'une version antérieure (ou abîmée) passe par la même validation qu'un import.
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) {
-      const s = JSON.parse(raw) as MeriseSchema
-      if (Array.isArray(s.entities) && Array.isArray(s.relations) && Array.isArray(s.links)) load(s)
-    } else {
-      load(EXAMPLES[0].build())
-    }
+    load(raw ? sanitizeSchema(JSON.parse(raw), uid) : EXAMPLES[0].build())
   } catch {
     load(EXAMPLES[0].build())
   }
@@ -402,9 +572,9 @@ export const useSchemaStore = defineStore('schema', () => {
 
   return {
     entities, relations, links,
-    editingEntityId, editingRelationId, showSqlModal, selection, copyNodes, paste, duplicateNodes, sqlOptions, canUndo, canRedo,
-    schema, issues, mld, sql, nodes, edges,
-    addEntity, addRelation, addRelationBetween, updateEntity, updateRelation, removeNode, moveNode, moveNodes, rerouteLinks,
+    editingEntityId, editingRelationId, showSqlModal, selection, view, mldRelayout, highlightId, flash, copyNodes, paste, duplicateNodes, sqlOptions, canUndo, canRedo,
+    schema, issues, weakEntityIds, mld, sql, nodes, edges,
+    addEntity, addRelation, addRelationBetween, updateEntity, setParent, setInheritance, inheritanceRoot, childrenOfEntity, updateRelation, addAttribute, updateAttribute, removeAttribute, moveAttribute, removeNode, moveNode, moveNodes, rerouteLinks,
     addLink, updateLink, removeLink, reset, loadExample, importSchema, undo, redo,
   }
 })

@@ -7,12 +7,17 @@ import { useTheme } from '../../composables/useTheme'
 import EntityNode from './EntityNode.vue'
 import RelationNode from './RelationNode.vue'
 import LinkEdge from './LinkEdge.vue'
+import IsaEdge from './IsaEdge.vue'
 
 const store = useSchemaStore()
 const { isDark } = useTheme()
-const { onNodeDragStop, onNodeDoubleClick, onEdgeClick, onNodesChange, onEdgesChange, onConnect } = useVueFlow({ id: 'mcdraw' })
+const { onNodeDragStop, onNodeDoubleClick, onEdgeClick, onNodesChange, onEdgesChange, onConnect } = useVueFlow('mcdraw')
 
-onNodeDragStop(({ node }) => store.moveNode(node.id, node.position.x, node.position.y))
+// `nodes` contient tous les nœuds déplacés ensemble (sélection multiple), pas seulement celui saisi.
+onNodeDragStop(({ node, nodes }) => {
+  const moved = nodes?.length ? nodes : [node]
+  store.moveNodes(Object.fromEntries(moved.map((n) => [n.id, { x: n.position.x, y: n.position.y }])))
+})
 
 onNodeDoubleClick(({ node }) => {
   if (node.type === 'entity') store.editingEntityId = node.id
@@ -20,7 +25,8 @@ onNodeDoubleClick(({ node }) => {
 })
 
 onEdgeClick(({ edge }) => {
-  store.editingRelationId = edge.source
+  if (edge.type === 'isa') store.editingEntityId = edge.source
+  else store.editingRelationId = edge.source
 })
 
 onNodesChange((changes) => {
@@ -34,7 +40,11 @@ onNodesChange((changes) => {
   }
 })
 onEdgesChange((changes) => {
-  for (const c of changes) if (c.type === 'remove') store.removeLink(c.id)
+  for (const c of changes) {
+    if (c.type !== 'remove') continue
+    if (c.id.startsWith('isa:')) store.setParent(c.id.slice(4), undefined)
+    else store.removeLink(c.id)
+  }
 })
 
 // Pas de boucle sur une association ; une entité peut en revanche se relier à elle-même (réflexive).
@@ -74,6 +84,7 @@ onConnect((c: Connection) => {
     <template #node-entity="props"><EntityNode :data="props.data" /></template>
     <template #node-relation="props"><RelationNode :data="props.data" /></template>
     <template #edge-link="props"><LinkEdge v-bind="props" /></template>
+    <template #edge-isa="props"><IsaEdge v-bind="props" /></template>
     <Background :gap="20" :size="2" :pattern-color="isDark ? '#484f58' : '#afb8c1'" />
     <Controls position="bottom-left" />
   </VueFlow>

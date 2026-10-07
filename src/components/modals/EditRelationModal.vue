@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { Trash2 } from 'lucide-vue-next'
 import { useSchemaStore } from '../../stores/schemaStore'
-import { CARDINALITIES, type Attribute, type Cardinality } from '../../types/schema'
+import { CARDINALITIES, REF_ACTIONS, type Attribute, type Cardinality, type RefAction } from '../../types/schema'
 import BaseModal from './BaseModal.vue'
 import AttributeList from './AttributeList.vue'
 
@@ -18,6 +18,17 @@ const legs = computed(() =>
     .filter((l) => l.relationId === relation.value?.id)
     .map((l) => ({ link: l, entity: store.entities.find((e) => e.id === l.entityId) })),
 )
+
+// Clés étrangères produites par chaque patte : les actions référentielles se règlent sur la patte de l'entité référencée.
+const fkLegs = computed(() =>
+  legs.value.flatMap(({ link, entity }) =>
+    store.mld.tables.flatMap((t) =>
+      t.foreignKeys.filter((fk) => fk.linkId === link.id).map((fk) => ({ link, entity, table: t.name, cols: fk.columns.join(', ') })),
+    ),
+  ),
+)
+const setAction = (id: string, key: 'onDelete' | 'onUpdate', e: Event) =>
+  store.updateLink(id, { [key]: ((e.target as HTMLSelectElement).value || undefined) as RefAction | undefined })
 
 const close = () => (store.editingRelationId = null)
 function save() {
@@ -52,6 +63,14 @@ function remove() {
             {{ c }}
           </button>
         </div>
+        <label
+          v-if="link.cardinality === '1,1' && legs.length === 2"
+          class="flex shrink-0 items-center gap-1 text-xs"
+          title="Identifiant relatif : la clé de l'autre entité entre dans la clé de celle-ci (entité faible)"
+        >
+          <input type="checkbox" :checked="!!link.identifying" @change="store.updateLink(link.id, { identifying: ($event.target as HTMLInputElement).checked })" />
+          CIF
+        </label>
         <input
           :value="link.role ?? ''"
           placeholder="rôle (optionnel)"
@@ -64,6 +83,31 @@ function remove() {
       </div>
       <p v-if="!legs.length" class="text-sm italic text-slate-400">Reliez cette association à des entités en tirant un trait depuis un de ses points.</p>
     </div>
+
+    <template v-if="fkLegs.length">
+      <h3 class="mb-1 text-sm font-medium">Actions référentielles <span class="font-normal text-slate-400">— effet sur la clé étrangère quand l'entité référencée est supprimée / modifiée</span></h3>
+      <div class="mb-5 space-y-2">
+        <div v-for="f in fkLegs" :key="f.link.id + f.table" class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+          <span class="min-w-0 flex-1 truncate" :title="`${f.table}(${f.cols}) → ${f.entity?.name}`">
+            <span class="font-mono text-xs">{{ f.table }}.{{ f.cols }}</span> → <span class="font-semibold uppercase">{{ f.entity?.name }}</span>
+          </span>
+          <label class="flex items-center gap-1 text-xs">
+            ON DELETE
+            <select :value="f.link.onDelete ?? ''" class="rounded border border-slate-300 bg-surface px-1 py-1 text-sm" @change="setAction(f.link.id, 'onDelete', $event)">
+              <option value="">par défaut</option>
+              <option v-for="a in REF_ACTIONS" :key="a" :value="a">{{ a }}</option>
+            </select>
+          </label>
+          <label class="flex items-center gap-1 text-xs">
+            ON UPDATE
+            <select :value="f.link.onUpdate ?? ''" class="rounded border border-slate-300 bg-surface px-1 py-1 text-sm" @change="setAction(f.link.id, 'onUpdate', $event)">
+              <option value="">par défaut</option>
+              <option v-for="a in REF_ACTIONS" :key="a" :value="a">{{ a }}</option>
+            </select>
+          </label>
+        </div>
+      </div>
+    </template>
 
     <h3 class="mb-2 text-sm font-medium">Propriétés de l'association</h3>
     <AttributeList v-model="attributes" />
