@@ -7,11 +7,13 @@ import { DIALECT_LABELS, SQL_DIALECTS } from '../../engine/mldToSql'
 import { EF_DEFAULTS, mldToEfCore } from '../../engine/mldToEfCore'
 import { mldToPrisma, PRISMA_VERSIONS, type PrismaVersion } from '../../engine/mldToPrisma'
 import { mldToTypeOrm } from '../../engine/mldToTypeOrm'
+import { diagramToText, LANGUAGE_LABELS, NOTATION_LABELS, type DiagramLanguage, type DiagramNotation } from '../../engine/diagramToText'
 import { downloadBlob } from '../../composables/useFileIO'
 
 const store = useSchemaStore()
 const copied = ref(false)
-const tab = ref<'sql' | 'efcore' | 'prisma' | 'typeorm' | 'seed'>('sql')
+const tab = ref<'sql' | 'efcore' | 'prisma' | 'typeorm' | 'seed' | 'diagram'>('sql')
+const diagram = ref({ language: 'mermaid' as DiagramLanguage, notation: 'erd' as DiagramNotation, fence: true })
 const ef = ref({ ...EF_DEFAULTS })
 const prismaVersion = ref<PrismaVersion>('7')
 
@@ -37,7 +39,9 @@ watch(
 )
 const reroll = () => (seed.value.seed = Math.floor(Math.random() * 100000))
 const lang = computed(() =>
-  tab.value === 'efcore' || (tab.value === 'seed' && seed.value.format === 'csharp')
+  tab.value === 'diagram'
+    ? diagram.value.language
+    : tab.value === 'efcore' || (tab.value === 'seed' && seed.value.format === 'csharp')
     ? 'cs'
     : tab.value === 'prisma'
       ? 'prisma'
@@ -87,6 +91,8 @@ const code = computed(() => {
       return mldToPrisma(store.mld, { ...store.sqlOptions, version: prismaVersion.value })
     case 'typeorm':
       return mldToTypeOrm(store.mld, store.sqlOptions)
+    case 'diagram':
+      return diagramToText(store.schema, diagram.value)
     default:
       return seedCode()
   }
@@ -106,11 +112,15 @@ const TS_TOKEN =
   /(\/\/[^\n]*)|(@[A-Za-z]+|\b(?:import|from|export|class|new|null)\b)|\b(string|number|boolean|Date|Relation)\b|\b(\d+)\b|('(?:[^'\\\n]|\\.)*')/g
 const PRISMA_TOKEN =
   /(\/\/[^\n]*)|(@@?[A-Za-z]+(?:\.[A-Za-z]+)?|\b(?:model|generator|datasource|provider|url|env)\b)|\b(Int|String|Boolean|DateTime|Decimal|Float)\b|\b(\d+)\b|("(?:[^"\\\n]|\\.)*")/g
+const MERMAID_TOKEN =
+  /(%%[^\n]*)|\b(erDiagram|classDiagram|class)\b|\b(INT|VARCHAR|TEXT|DECIMAL|FLOAT|BOOLEAN|DATE|DATETIME|PK)\b|\b(\d+)\b|("[^"\n]*")/g
+const PLANTUML_TOKEN =
+  /('[^\n]*)|(@startuml|@enduml|\b(?:entity|class|diamond|hide|circle|as)\b)|\b(INT|VARCHAR|TEXT|DECIMAL|FLOAT|BOOLEAN|DATE|DATETIME)\b|\b(\d+)\b|("[^"\n]*")/g
 const TOKEN_CLASS =['', 'text-slate-500 italic', 'text-indigo-300 font-semibold', 'text-emerald-300', 'text-amber-300', 'text-sky-300', '']
 
 const highlighted = computed(() => {
   const src = code.value
-  const re = { sql: SQL_TOKEN, js: JS_TOKEN, ts: TS_TOKEN, prisma: PRISMA_TOKEN, cs: CS_TOKEN }[lang.value]
+  const re = { mermaid: MERMAID_TOKEN, plantuml: PLANTUML_TOKEN, sql: SQL_TOKEN, js: JS_TOKEN, ts: TS_TOKEN, prisma: PRISMA_TOKEN, cs: CS_TOKEN }[lang.value]
   let out = ''
   let last = 0
   for (const m of src.matchAll(re)) {
@@ -142,6 +152,8 @@ const fileName = computed(() => {
       return 'schema.prisma'
     case 'typeorm':
       return 'entities.ts'
+    case 'diagram':
+      return diagram.value.fence ? 'diagramme.md' : diagram.value.language === 'mermaid' ? 'diagramme.mmd' : 'diagramme.puml'
     default:
       return SEED_FORMATS[seed.value.format].file
   }
@@ -161,9 +173,10 @@ const field = 'rounded border border-slate-300 px-2 py-1'
       <button :class="tabClass('prisma')" @click="tab = 'prisma'">Prisma</button>
       <button :class="tabClass('typeorm')" @click="tab = 'typeorm'">TypeORM</button>
       <button :class="tabClass('seed')" @click="tab = 'seed'">Données fictives</button>
+      <button :class="tabClass('diagram')" @click="tab = 'diagram'">Mermaid / PlantUML</button>
     </div>
 
-    <div v-if="tab !== 'efcore' && (tab !== 'seed' || seed.format !== 'csharp')" class="mb-3 flex flex-wrap items-center gap-4 text-sm">
+    <div v-if="tab !== 'diagram' && tab !== 'efcore' && (tab !== 'seed' || seed.format !== 'csharp')" class="mb-3 flex flex-wrap items-center gap-4 text-sm">
       <label v-if="tab === 'seed'" class="flex items-center gap-2">
         Format
         <select v-model="seed.format" :class="field">
@@ -184,6 +197,23 @@ const field = 'rounded border border-slate-300 px-2 py-1'
       </label>
       <label class="flex items-center gap-2">
         <input v-model="store.sqlOptions.autoIncrement" type="checkbox" /> Clés primaires auto-incrémentées
+      </label>
+    </div>
+    <div v-else-if="tab === 'diagram'" class="mb-3 flex flex-wrap items-center gap-4 text-sm">
+      <label class="flex items-center gap-2">
+        Langage
+        <select v-model="diagram.language" :class="field">
+          <option v-for="(label, l) in LANGUAGE_LABELS" :key="l" :value="l">{{ label }}</option>
+        </select>
+      </label>
+      <label class="flex items-center gap-2">
+        Notation
+        <select v-model="diagram.notation" :class="field">
+          <option v-for="(label, n) in NOTATION_LABELS" :key="n" :value="n">{{ label }}</option>
+        </select>
+      </label>
+      <label class="flex items-center gap-2">
+        <input v-model="diagram.fence" type="checkbox" /> Bloc de code Markdown (README, GitHub, wiki)
       </label>
     </div>
     <div v-else class="mb-3 flex flex-wrap items-center gap-4 text-sm">

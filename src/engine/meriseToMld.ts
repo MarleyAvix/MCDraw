@@ -304,6 +304,45 @@ export function meriseToMld(input: MeriseSchema): MldResult {
       }
     }
   }
+  warnings.push(...sqlServerCascadeWarnings(tables))
   for (const t of tables) if (t.origin === 'association') t.sourceId = relationOrigin.get(t.sourceId) ?? t.sourceId
   return { tables, warnings }
+}
+
+const PROPAGATING = new Set(['CASCADE', 'SET NULL', 'SET DEFAULT'])
+
+/**
+ * SQL Server refuse de créer une clé étrangère dont les actions référentielles pourraient former un cycle
+ * ou atteindre une même table par plusieurs chemins (« may cause cycles or multiple cascade paths »).
+ */
+export function sqlServerCascadeWarnings(tables: MldTable[]): string[] {
+  type Edge = { from: string; to: string; fk: MldTable['foreignKeys'][number] }
+  const edges: Edge[] = tables.flatMap((t) =>
+    t.foreignKeys
+      .filter((fk) => PROPAGATING.has(fk.onDelete ?? '') || PROPAGATING.has(fk.onUpdate ?? ''))
+      .map((fk) => ({ from: fk.refTable, to: t.name, fk })),
+  )
+  const flagged = new Map<Edge, string>()
+  const label = (e: Edge) => `${e.to}(${e.fk.columns.join(', ')})`
+  for (const e of edges) {
+    if (e.from === e.to) flagged.set(e, `SQL Server refusera ${label(e)} : une table qui se référence elle-même ne peut pas avoir d'action CASCADE / SET NULL (utilisez RESTRICT ou un déclencheur).`)
+  }
+  const out = edges.filter((e) => e.from !== e.to)
+  for (const start of new Set(out.map((e) => e.from))) {
+    const arrivals = new Map<string, number>()
+    const walk = (node: string, stack: string[]) => {
+      for (const e of out.filter((x) => x.from === node)) {
+        if (stack.includes(e.to)) {
+          if (!flagged.has(e)) flagged.set(e, `SQL Server refusera ${label(e)} : les actions en cascade forment un cycle (${[...stack, e.to].join(' → ')}).`)
+          continue
+        }
+        const n = (arrivals.get(e.to) ?? 0) + 1
+        arrivals.set(e.to, n)
+        if (n > 1 && !flagged.has(e)) flagged.set(e, `SQL Server refusera ${label(e)} : « ${e.to} » est atteinte par plusieurs chemins de cascade depuis « ${start} » (utilisez RESTRICT sur l'un d'eux).`)
+        walk(e.to, [...stack, e.to])
+      }
+    }
+    walk(start, [start])
+  }
+  return [...flagged.values()]
 }

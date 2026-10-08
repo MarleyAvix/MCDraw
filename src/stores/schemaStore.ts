@@ -5,6 +5,7 @@ import { meriseToMld, normalizeSize, slug } from '../engine/meriseToMld'
 import { mldToSql, type SqlDialect } from '../engine/mldToSql'
 import { rootOf } from '../engine/inheritance'
 import { sanitizeSchema } from '../engine/sanitize'
+import { buildTemplate, TEMPLATE_DEFS } from '../engine/templates'
 import type { Attribute, Cardinality, DataType, Entity, InheritanceStrategy, Link, MeriseSchema, Relation } from '../types/schema'
 
 const STORAGE_KEY = 'mcdraw:schema:v1'
@@ -52,6 +53,9 @@ const attrs = (seeds: AttrSeed[]): Attribute[] =>
 export interface ExampleDef {
   id: string
   label: string
+  /** Regroupement dans le menu : petits exemples pédagogiques ou modèles de départ complets. */
+  category: 'exemple' | 'modele'
+  description?: string
   build: () => MeriseSchema
 }
 
@@ -64,7 +68,7 @@ const link = (relationId: string, entityId: string, cardinality: Cardinality, ha
   entityHandle: handles[1],
 })
 
-export const EXAMPLES: ExampleDef[] = [
+const BASIC_EXAMPLES: Omit<ExampleDef, 'category'>[] = [
   {
     id: 'commandes',
     label: 'Boutique (clients, commandes, produits)',
@@ -156,6 +160,17 @@ export const EXAMPLES: ExampleDef[] = [
   },
 ]
 
+export const EXAMPLES: ExampleDef[] = [
+  ...BASIC_EXAMPLES.map((e) => ({ ...e, category: 'exemple' as const })),
+  ...TEMPLATE_DEFS.map((t) => ({
+    id: t.id,
+    label: t.label,
+    description: t.description,
+    category: 'modele' as const,
+    build: () => buildTemplate(t, uid),
+  })),
+]
+
 /** Vues : MCD (édition) et vues dérivées MLD, ERD (pattes de corbeau), UML (diagramme de classes). */
 export type ViewMode = 'mcd' | 'mld' | 'erd' | 'uml'
 
@@ -167,6 +182,7 @@ export const useSchemaStore = defineStore('schema', () => {
   const editingEntityId = ref<string | null>(null)
   const editingRelationId = ref<string | null>(null)
   const showSqlModal = ref(false)
+  const showSqlImportModal = ref(false)
   const showTextPanel = ref(false)
   const selection = ref<string[]>([])
   const view = ref<ViewMode>('mcd')
@@ -586,7 +602,7 @@ export const useSchemaStore = defineStore('schema', () => {
 
   return {
     entities, relations, links,
-    editingEntityId, editingRelationId, showSqlModal, showTextPanel, selection, view, mldRelayout, highlightId, flash, copyNodes, paste, duplicateNodes, sqlOptions, canUndo, canRedo,
+    editingEntityId, editingRelationId, showSqlModal, showSqlImportModal, showTextPanel, selection, view, mldRelayout, highlightId, flash, copyNodes, paste, duplicateNodes, sqlOptions, canUndo, canRedo,
     schema, issues, weakEntityIds, mld, sql, nodes, edges,
     addEntity, addRelation, addRelationBetween, updateEntity, setParent, setInheritance, inheritanceRoot, childrenOfEntity, updateRelation, addAttribute, updateAttribute, removeAttribute, moveAttribute, removeNode, moveNode, moveNodes, rerouteLinks,
     addLink, updateLink, removeLink, reset, loadExample, importSchema, undo, redo,

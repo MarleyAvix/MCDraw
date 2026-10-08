@@ -4,7 +4,7 @@ import { useVueFlow } from '@vue-flow/core'
 import { useSpawnPoint } from '../../composables/useSpawnPoint'
 import {
   Square, Circle, Code2, RotateCcw, BookOpen, ChevronDown, Sun, Moon,
-  Undo2, Redo2, LayoutGrid, FileDown, FileUp, Image, FileJson, TextCursorInput,
+  Undo2, Redo2, LayoutGrid, FileDown, FileUp, Image, FileJson, TextCursorInput, DatabaseZap,
 } from 'lucide-vue-next'
 import { EXAMPLES, useSchemaStore } from '../../stores/schemaStore'
 import { useTheme } from '../../composables/useTheme'
@@ -17,6 +17,11 @@ const spawnPoint = useSpawnPoint()
 const { isDark, toggle: toggleTheme } = useTheme()
 const { exportJson, importJson, exportImage } = useFileIO()
 const { layout } = useAutoLayout()
+
+const EXAMPLE_GROUPS = [
+  { category: 'modele', title: 'Modèles de départ' },
+  { category: 'exemple', title: 'Petits exemples' },
+].map((g) => ({ ...g, items: EXAMPLES.filter((e) => e.category === g.category) }))
 
 const menu = ref<'examples' | 'file' | null>(null)
 const fileInput = ref<HTMLInputElement>()
@@ -98,8 +103,14 @@ const panel = 'absolute left-0 top-full z-40 mt-1 rounded-md border border-slate
 
     <div v-if="store.view === 'mcd'" class="relative">
       <button :class="btn" @click="toggleMenu('examples')"><BookOpen :size="16" /> Exemples <ChevronDown :size="14" /></button>
-      <div v-if="menu === 'examples'" :class="[panel, 'w-72']">
-        <button v-for="ex in EXAMPLES" :key="ex.id" :class="item" @click="loadExample(ex.id)">{{ ex.label }}</button>
+      <div v-if="menu === 'examples'" :class="[panel, 'max-h-[75vh] w-80 overflow-y-auto']">
+        <template v-for="group in EXAMPLE_GROUPS" :key="group.category">
+          <p class="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-slate-400">{{ group.title }}</p>
+          <button v-for="ex in group.items" :key="ex.id" :class="[item, 'flex-col !items-start gap-0']" @click="loadExample(ex.id)">
+            <span>{{ ex.label }}</span>
+            <span v-if="ex.description" class="text-xs font-normal text-slate-500">{{ ex.description }}</span>
+          </button>
+        </template>
       </div>
     </div>
 
@@ -108,6 +119,7 @@ const panel = 'absolute left-0 top-full z-40 mt-1 rounded-md border border-slate
       <div v-if="menu === 'file'" :class="[panel, 'w-60']">
         <button :class="item" @click="run(exportJson)"><FileJson :size="15" /> Exporter le projet (JSON)</button>
         <button :class="item" @click="run(() => fileInput?.click())"><FileUp :size="15" /> Importer un projet…</button>
+        <button :class="item" @click="run(() => (store.showSqlImportModal = true))"><DatabaseZap :size="15" /> Importer du SQL (CREATE TABLE)…</button>
         <hr class="my-1 border-slate-200" />
         <button :class="item" @click="run(() => exportImage('png'))"><Image :size="15" /> Image PNG</button>
         <button :class="item" @click="run(() => exportImage('svg'))"><Image :size="15" /> Image SVG</button>
@@ -119,6 +131,7 @@ const panel = 'absolute left-0 top-full z-40 mt-1 rounded-md border border-slate
       <component :is="isDark ? Sun : Moon" :size="16" />
     </button>
     <button v-if="store.view === 'mcd'" :class="btn" @click="reset"><RotateCcw :size="16" /> Réinitialiser</button>
+    <button :class="btn" title="Reconstruire un MCD à partir de CREATE TABLE" @click="store.showSqlImportModal = true"><DatabaseZap :size="16" /> Importer SQL</button>
     <button class="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700" @click="store.showSqlModal = true">
       <Code2 :size="16" /> Exporter SQL
     </button>

@@ -12,6 +12,7 @@ import TextPanel from './components/panels/TextPanel.vue'
 import LintPanel from './components/panels/LintPanel.vue'
 import MldPanel from './components/panels/MldPanel.vue'
 import SqlExportModal from './components/panels/SqlExportModal.vue'
+import SqlImportModal from './components/panels/SqlImportModal.vue'
 import EditEntityModal from './components/modals/EditEntityModal.vue'
 import EditRelationModal from './components/modals/EditRelationModal.vue'
 
@@ -101,5 +102,6 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
     <EditEntityModal v-if="store.editingEntityId" :key="store.editingEntityId" />
     <EditRelationModal v-if="store.editingRelationId" :key="store.editingRelationId" />
     <SqlExportModal v-if="store.showSqlModal" />
+    <SqlImportModal v-if="store.showSqlImportModal" />
   </div>
 </template>
