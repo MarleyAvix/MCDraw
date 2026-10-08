@@ -304,7 +304,6 @@ export function meriseToMld(input: MeriseSchema): MldResult {
       }
     }
   }
-  warnings.push(...sqlServerCascadeWarnings(tables))
   for (const t of tables) if (t.origin === 'association') t.sourceId = relationOrigin.get(t.sourceId) ?? t.sourceId
   return { tables, warnings }
 }
@@ -314,6 +313,7 @@ const PROPAGATING = new Set(['CASCADE', 'SET NULL', 'SET DEFAULT'])
 /**
  * SQL Server refuse de créer une clé étrangère dont les actions référentielles pourraient former un cycle
  * ou atteindre une même table par plusieurs chemins (« may cause cycles or multiple cascade paths »).
+ * Propre à ce dialecte : à n'afficher que lorsque SQL Server est la cible.
  */
 export function sqlServerCascadeWarnings(tables: MldTable[]): string[] {
   type Edge = { from: string; to: string; fk: MldTable['foreignKeys'][number] }
@@ -338,7 +338,10 @@ export function sqlServerCascadeWarnings(tables: MldTable[]): string[] {
         }
         const n = (arrivals.get(e.to) ?? 0) + 1
         arrivals.set(e.to, n)
-        if (n > 1 && !flagged.has(e)) flagged.set(e, `SQL Server refusera ${label(e)} : « ${e.to} » est atteinte par plusieurs chemins de cascade depuis « ${start} » (utilisez RESTRICT sur l'un d'eux).`)
+        if (n > 1) {
+          if (!flagged.has(e)) flagged.set(e, `SQL Server refusera ${label(e)} : « ${e.to} » est atteinte par plusieurs chemins de cascade depuis « ${start} » (utilisez RESTRICT sur l'un d'eux).`)
+          continue // déjà explorée depuis ce départ : la redescendre rendrait le parcours exponentiel
+        }
         walk(e.to, [...stack, e.to])
       }
     }

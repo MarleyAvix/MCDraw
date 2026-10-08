@@ -101,7 +101,9 @@ export function mldToTypeOrm(mld: MldResult, options: Partial<SqlOptions> = {}):
       const targetCls = className.get(r.target.name)!
       const tp = props.get(r.target.name)!
       const join = r.fk.columns.map((c, i) => `{ name: ${ts(c)}, referencedColumnName: ${ts(tp.get(r.fk.refColumns[i])!)} }`)
-      const opts = [`nullable: ${r.nullable}`, `onDelete: ${ts(r.fk.onDelete ?? 'RESTRICT')}`, ...(r.fk.onUpdate ? [`onUpdate: ${ts(r.fk.onUpdate)}`] : [])]
+      // SQL Server ne connaît pas RESTRICT : NO ACTION est l'équivalent (comme dans l'export SQL).
+      const action = (a: string) => ts(o.dialect === 'sqlserver' && a === 'RESTRICT' ? 'NO ACTION' : a)
+      const opts = [`nullable: ${r.nullable}`, `onDelete: ${action(r.fk.onDelete ?? 'RESTRICT')}`, ...(r.fk.onUpdate ? [`onUpdate: ${action(r.fk.onUpdate)}`] : [])]
       w()
       w(`  @${deco(r.oneToOne ? 'OneToOne' : 'ManyToOne')}(() => ${targetCls}, (x) => x.${r.inverse}, { ${opts.join(', ')} })`)
       w(`  @${deco('JoinColumn')}(${join.length === 1 ? join[0] : `[${join.join(', ')}]`})`)

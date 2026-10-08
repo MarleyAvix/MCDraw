@@ -1,7 +1,7 @@
 import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import type { Edge, Node } from '@vue-flow/core'
-import { meriseToMld, normalizeSize, slug } from '../engine/meriseToMld'
+import { meriseToMld, normalizeSize, slug, sqlServerCascadeWarnings } from '../engine/meriseToMld'
 import { mldToSql, type SqlDialect } from '../engine/mldToSql'
 import { rootOf } from '../engine/inheritance'
 import { sanitizeSchema } from '../engine/sanitize'
@@ -241,6 +241,10 @@ export const useSchemaStore = defineStore('schema', () => {
   })
   const mld = computed(() => meriseToMld(schema.value))
   const sql = computed(() => mldToSql(mld.value, sqlOptions.value))
+  /** Cascades que SQL Server refuserait : signalées seulement quand c'est le dialecte choisi. */
+  const dialectWarnings = computed(() => (sqlOptions.value.dialect === 'sqlserver' ? sqlServerCascadeWarnings(mld.value.tables) : []))
+  /** Avertissements du MLD, plus ceux du dialecte choisi. */
+  const mldWarnings = computed(() => [...mld.value.warnings, ...dialectWarnings.value])
 
   /** Classe racine de la hiérarchie « est un » d'une entité. */
   const inheritanceRoot = (id: string): Entity | undefined => {
@@ -603,7 +607,7 @@ export const useSchemaStore = defineStore('schema', () => {
   return {
     entities, relations, links,
     editingEntityId, editingRelationId, showSqlModal, showSqlImportModal, showTextPanel, selection, view, mldRelayout, highlightId, flash, copyNodes, paste, duplicateNodes, sqlOptions, canUndo, canRedo,
-    schema, issues, weakEntityIds, mld, sql, nodes, edges,
+    schema, issues, weakEntityIds, mld, sql, dialectWarnings, mldWarnings, nodes, edges,
     addEntity, addRelation, addRelationBetween, updateEntity, setParent, setInheritance, inheritanceRoot, childrenOfEntity, updateRelation, addAttribute, updateAttribute, removeAttribute, moveAttribute, removeNode, moveNode, moveNodes, rerouteLinks,
     addLink, updateLink, removeLink, reset, loadExample, importSchema, undo, redo,
   }

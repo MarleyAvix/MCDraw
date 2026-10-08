@@ -1,14 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { parseMcdText } from '../textToMcd'
-import { meriseToMld } from '../meriseToMld'
-import type { RefAction } from '../../types/schema'
+import { meriseToMld, sqlServerCascadeWarnings } from '../meriseToMld'
+import type { MldTable, RefAction } from '../../types/schema'
 
 let n = 0
-const warnings = (text: string, action: RefAction) => {
+const mldOf = (text: string, action: RefAction) => {
   const { schema } = parseMcdText(text, () => `id${n++}`)
   schema.links.forEach((l) => (l.onDelete = action))
-  return meriseToMld(schema).warnings.filter((w) => w.startsWith('SQL Server'))
+  return meriseToMld(schema)
 }
+const warnings = (text: string, action: RefAction) => sqlServerCascadeWarnings(mldOf(text, action).tables)
 
 const REFLEXIVE = `
 Employé: #id_employe, nom
@@ -45,5 +46,19 @@ describe('avertissements SQL Server sur les cascades', () => {
   })
   it('une cascade simple est acceptée', () => {
     expect(warnings(SIMPLE, 'CASCADE')).toEqual([])
+  })
+  it('ne figure pas dans les avertissements généraux du MLD (propre au dialecte SQL Server)', () => {
+    expect(mldOf(TWO_PATHS, 'CASCADE').warnings.some((w) => w.startsWith('SQL Server'))).toBe(false)
+  })
+  it('reste rapide sur des cascades en losanges empilés (2^40 chemins)', () => {
+    const fk = (ref: string) => ({ columns: [`id_${ref}`], refTable: ref, refColumns: ['id'], onDelete: 'CASCADE' as const })
+    const table = (name: string, refs: string[]): MldTable => ({ name, origin: 'entity', sourceId: name, columns: [], primaryKey: ['id'], foreignKeys: refs.map(fk) })
+    const tables = [table('t0', [])]
+    for (let k = 1; k <= 40; k++) tables.push(table(`a${k}`, [`t${k - 1}`]), table(`b${k}`, [`t${k - 1}`]), table(`t${k}`, [`a${k}`, `b${k}`]))
+    const t0 = performance.now()
+    const w = sqlServerCascadeWarnings(tables)
+    expect(performance.now() - t0).toBeLessThan(1000)
+    expect(w.length).toBeGreaterThan(0)
+    expect(w.every((x) => x.includes('plusieurs chemins'))).toBe(true)
   })
 })

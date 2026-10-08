@@ -57,6 +57,8 @@ const RE = {
     String.raw`^(${ID})\s+((?:[\["])?[A-Za-z_]\w*(?:[\]"])?(?:\s+(?:VARYING|PRECISION|UNSIGNED|ZEROFILL|WITH(?:OUT)?\s+TIME\s+ZONE))*)\s*(?:\(([^)]*)\))?(.*)$`,
     'isu',
   ),
+  /** Colonne réduite à son nom (SQLite accepte une colonne sans type). */
+  bare: new RegExp(String.raw`^(${ID})()()()$`, 'u'),
   inlineRef: new RegExp(String.raw`\bREFERENCES\s+(${QNAME})\s*(?:\([^)]*\))?(.*)$`, 'isu'),
   id: new RegExp(ID, 'gu'),
 }
@@ -205,6 +207,15 @@ function actions(tail: string): Pick<Fk, 'onDelete' | 'onUpdate'> {
   return out
 }
 
+/**
+ * Vrai si `item` se lit comme une colonne de type connu : `key text` ou `period VARCHAR(7)` sont des colonnes
+ * (mots non réservés en PostgreSQL), alors que `KEY idx_nom (nom)` est un index.
+ */
+function looksLikeColumn(item: string): boolean {
+  const m = RE.column.exec(item)
+  return !!m && mapType(m[2].replace(/[[\]"]/g, ''), m[3]).known
+}
+
 /** Applique une contrainte de table (`PRIMARY KEY (…)`, `FOREIGN KEY …`, `UNIQUE (…)`). Faux si `item` n'en est pas une. */
 function tableConstraint(t: Tbl, item: string): boolean {
   let m = RE.pk.exec(item)
@@ -222,11 +233,11 @@ function tableConstraint(t: Tbl, item: string): boolean {
     t.uniques.push(cols(m[1]))
     return true
   }
-  return RE.skip.test(item)
+  return RE.skip.test(item) && !looksLikeColumn(item)
 }
 
 function parseColumn(t: Tbl, item: string, warnings: string[]) {
-  const m = RE.column.exec(item)
+  const m = RE.column.exec(item) ?? RE.bare.exec(item)
   if (!m) return
   let typeWord = m[2].replace(/[[\]"]/g, '')
   let rest = m[4]
@@ -257,7 +268,7 @@ function parseColumn(t: Tbl, item: string, warnings: string[]) {
 
 function parseTables(sql: string, warnings: string[]): Tbl[] {
   const tables: Tbl[] = []
-  const alters: { table: string; item: string }[] = []
+  const alters: { table: string; item: string; column: boolean }[] = []
   for (const stmt of splitTop(sql, ';')) {
     const c = RE.create.exec(stmt)
     if (c) {
@@ -271,16 +282,23 @@ function parseTables(sql: string, warnings: string[]): Tbl[] {
     }
     const a = RE.alter.exec(stmt)
     if (a) {
-      // MySQL / phpMyAdmin : plusieurs « ADD … » séparés par des virgules dans un même ALTER TABLE.
+      // MySQL / phpMyAdmin : plusieurs « ADD … » séparés par des virgules dans un même ALTER TABLE ;
+      // SQL Server : « ADD a INT, b INT » ajoute deux colonnes avec un seul ADD.
+      let afterAdd = false
       for (const piece of splitTop(a[2], ',')) {
-        const add = /^ADD\s+(?!COLUMN)(.*)$/is.exec(piece)
-        if (add) alters.push({ table: lastIdent(a[1]), item: add[1].trim() })
+        const add = /^ADD\s+(COLUMN\s+)?(?:IF\s+NOT\s+EXISTS\s+)?(.*)$/is.exec(piece)
+        const more: boolean = !add && afterAdd && looksLikeColumn(piece)
+        if (add) alters.push({ table: lastIdent(a[1]), item: add[2].trim(), column: !!add[1] })
+        else if (more) alters.push({ table: lastIdent(a[1]), item: piece, column: true })
+        afterAdd = !!add || more
       }
     }
   }
-  for (const { table, item } of alters) {
+  // Scripts de migration : contraintes et colonnes ajoutées après coup (ALTER TABLE … ADD [COLUMN]).
+  for (const { table, item, column } of alters) {
     const t = tables.find((x) => k(x.name) === k(table))
-    if (t) tableConstraint(t, item)
+    if (!t) continue
+    if (column || (!tableConstraint(t, item) && looksLikeColumn(item))) parseColumn(t, item, warnings)
   }
   return tables
 }
@@ -370,7 +388,8 @@ export function sqlToMcd(sql: string, makeId: () => string): SqlImportResult {
   }
   for (const [t, fk] of parentFk) entityOf.get(k(t.name))!.parentId = entityOf.get(k(fk.ref))!.id
 
-  const usedNames = new Set<string>()
+  // Noms d'associations distincts entre eux et de ceux des entités (sinon « nom en double » sur le canvas).
+  const usedNames = new Set<string>([...entities.map((e) => k(e.name)), ...[...assoc].map((t) => k(t.name))])
   const uniqueName = (base: string) => {
     let name = base
     for (let n = 2; usedNames.has(k(name)); n++) name = `${base}_${n}`

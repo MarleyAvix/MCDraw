@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { layoutMcd, mcdToText, parseMcdText } from '../textToMcd'
+import { layoutMcd, mcdToText, mergeMcd, parseMcdText } from '../textToMcd'
+import { buildTemplate, TEMPLATE_DEFS } from '../templates'
+import type { MeriseSchema } from '../../types/schema'
 import { meriseToMld } from '../meriseToMld'
 import { sanitizeSchema } from '../sanitize'
 import { lintSchema } from '../lintSchema'
@@ -115,5 +117,61 @@ describe('mcdToText', () => {
   it('conserve héritage, rôles et CIF', () => {
     const src = 'P: #id\nE < P: n\nR: E 1,1 CIF -- P 0,n chef\n'
     expect(mcdToText(parse(src).schema)).toBe('P: #id\nE < P: n\n\nR: E 1,1 CIF -- P 0,n chef\n')
+  })
+})
+
+describe('mergeMcd (« Générer » depuis le texte)', () => {
+  const byId = <T extends { id: string }>(list: T[]) => [...list].sort((a, b) => a.id.localeCompare(b.id))
+  const regenerate = (s: MeriseSchema, edit = (t: string) => t) => mergeMcd(s, parse(edit(mcdToText(s))).schema)
+
+  it.each(TEMPLATE_DEFS.map((d) => [d.label, d] as const))('« Depuis le MCD » puis « Générer » ne change rien (%s)', (_, def) => {
+    const s = buildTemplate(def, id)
+    const back = regenerate(s)
+    expect(back.entities).toEqual(s.entities)
+    expect(back.relations).toEqual(s.relations)
+    expect(byId(back.links)).toEqual(byId(s.links))
+  })
+
+  const shop = (): MeriseSchema => {
+    const s = layoutMcd(parse(SHOP).schema)
+    const client = s.entities.find((e) => e.name === 'Client')!
+    client.name = 'Client fidèle'
+    client.attributes[2] = { ...client.attributes[2], name: 'e-mail', notNull: true, unique: true, check: "e_mail LIKE '%@%'" }
+    s.links.forEach((l) => (l.onDelete = 'CASCADE'))
+    s.relations[1].tableName = 'ligne_commande'
+    return s
+  }
+
+  it('garde contraintes, noms d’origine, actions et nom de table lors d’une modification', () => {
+    const s = shop()
+    const text = mcdToText(s)
+    expect(text).toContain('Client_fidèle: #id_client, nom, e_mail')
+    const back = regenerate(s, (t) => t.replace('e_mail', 'e_mail, telephone'))
+    const client = back.entities.find((e) => e.id === s.entities[0].id)!
+    expect(client.name).toBe('Client fidèle')
+    expect(client.attributes.map((a) => a.name)).toEqual(['id_client', 'nom', 'e-mail', 'telephone'])
+    expect(client.attributes[2]).toMatchObject({ notNull: true, unique: true, check: "e_mail LIKE '%@%'" })
+    expect(back.links.every((l) => l.onDelete === 'CASCADE')).toBe(true)
+    expect(back.relations[1].tableName).toBe('ligne_commande')
+    expect(back.entities.map((e) => [e.x, e.y])).toEqual(s.entities.map((e) => [e.x, e.y]))
+  })
+
+  it('place une nouvelle entité à droite et une nouvelle association entre ses entités', () => {
+    const s = shop()
+    const right = Math.max(...[...s.entities, ...s.relations].map((n) => n.x))
+    const back = regenerate(s, (t) => `${t}Fournisseur: #id_fournisseur\nNoter: Client_fidèle 0,n -- Produit 0,n\n`)
+    const fournisseur = back.entities.find((e) => e.name === 'Fournisseur')!
+    expect(fournisseur.x).toBeGreaterThan(right)
+    const noter = back.relations.find((r) => r.name === 'Noter')!
+    const [client, produit] = ['Client fidèle', 'Produit'].map((n) => back.entities.find((e) => e.name === n)!)
+    expect(noter.x).toBeGreaterThan(Math.min(client.x, produit.x) - 1)
+    expect(noter.x).toBeLessThan(Math.max(client.x, produit.x) + 200)
+    expect(back.links.filter((l) => l.relationId === noter.id).every((l) => l.entityHandle && l.relationHandle)).toBe(true)
+  })
+
+  it("une entité identifiée seulement par CIF ne reçoit pas d'identifiant implicite", () => {
+    const { schema } = parse('Commande: #id_commande\nDétail: quantite:INT\nContenir: Commande 0,n -- Détail 1,1 CIF')
+    expect(schema.entities[1].attributes[0].isPrimaryKey).toBe(false)
+    expect(lintSchema(schema)).toEqual([])
   })
 })

@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { meriseToMld } from '../meriseToMld'
 import { planSeed, seedData, seedToSql, type SeedData } from '../mldToSeed'
 import { seedToBogus, seedToFaker } from '../seedScripts'
+import { runSeedJob } from '../seedJob'
+import { faker } from '@faker-js/faker/locale/fr'
 import type { Attribute, Cardinality, Entity, Link, MeriseSchema, Relation } from '../../types/schema'
 
 const attr = (name: string, type: Attribute['type'] = 'VARCHAR', pk = false, extra: Partial<Attribute> = {}): Attribute => ({
@@ -138,5 +140,72 @@ describe('scripts de seed', () => {
     expect(js).toContain('faker.person.lastName()')
     expect(js).toContain('pg_get_serial_sequence')
     expect(() => new Function(js.replace(/^import .*$/m, 'const faker = {}'))).not.toThrow()
+  })
+})
+
+describe('seed : cas limites', () => {
+  it("association quaternaire à 100 lignes : tirage sans énumérer les 100^4 combinaisons", () => {
+    const names = ['A', 'B', 'C', 'D']
+    const s: MeriseSchema = {
+      entities: names.map((n) => entity(n, [attr(`id_${n}`, 'INT', true)])),
+      relations: [relation('r')],
+      links: names.map((n) => link('r', n, '0,n')),
+    }
+    const t0 = performance.now()
+    const d = gen(s, 100)
+    expect(performance.now() - t0).toBeLessThan(2000)
+    const rows = table(d, 'a_b_c_d').rows
+    expect(rows).toHaveLength(100)
+    expect(new Set(rows.map((r) => r.join('-'))).size).toBe(100)
+  })
+
+  it('clé VARCHAR(2) unique : valeurs distinctes qui tiennent dans la longueur', () => {
+    const s: MeriseSchema = { entities: [entity('Pays', [attr('code_pays', 'VARCHAR', true, { size: '2' }), attr('nom')])], relations: [], links: [] }
+    const codes = col(gen(s, 30), 'pays', 'code_pays') as string[]
+    expect(new Set(codes).size).toBe(30)
+    expect(codes.every((c) => c.length <= 2)).toBe(true)
+  })
+
+  it('date unique : des dates distinctes et valides, pas un suffixe numérique', () => {
+    const s: MeriseSchema = { entities: [entity('Jour', [attr('date_jour', 'DATE', true)])], relations: [], links: [] }
+    const days = col(gen(s, 30), 'jour', 'date_jour') as string[]
+    expect(new Set(days).size).toBe(30)
+    expect(days.every((d) => /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(Date.parse(d)))).toBe(true)
+  })
+
+  it('scripts : le suffixe d’unicité est conservé dans la longueur permise', () => {
+    const s: MeriseSchema = { entities: [entity('Pays', [attr('code_pays', 'VARCHAR', true, { size: '2' })])], relations: [], links: [] }
+    const mld = meriseToMld(s)
+    expect(seedToFaker(mld, { rows: 5 })).toContain('.slice(0, Math.max(0, 2 - String(i).length)) + i')
+    expect(seedToBogus(mld, { rows: 5 })).toContain('.ClampLength(max: Math.Max(0, 2 - f.IndexFaker.ToString().Length)) + f.IndexFaker')
+  })
+})
+
+describe('seed : gros volumes', () => {
+  it('découpe les INSERT par lots de 500 lignes (SQL Server en refuse plus de 1 000)', () => {
+    const sql = seedToSql(gen(shop, 1200), { dialect: 'sqlserver', autoIncrement: true })
+    expect(sql.match(/INSERT INTO client /g)).toHaveLength(3)
+    const batches = sql.split('INSERT INTO').slice(1).map((b) => b.split('\n').filter((l) => l.startsWith('  (')).length)
+    expect(Math.max(...batches)).toBeLessThanOrEqual(500)
+    expect(sql.indexOf('SET IDENTITY_INSERT client ON')).toBeLessThan(sql.indexOf('INSERT INTO client'))
+    expect(sql.lastIndexOf('INSERT INTO client')).toBeLessThan(sql.indexOf('SET IDENTITY_INSERT client OFF'))
+  })
+
+  it('le script Faker exécuté produit lui aussi des lots de 500 lignes', () => {
+    const js = seedToFaker(meriseToMld(shop), { rows: 600 }, { dialect: 'sqlserver', autoIncrement: true })
+    let printed = ''
+    new Function('faker', 'console', js.replace(/^import .*$/m, ''))(faker, { log: (s: string) => (printed = s) })
+    expect(printed.match(/INSERT INTO client /g)).toHaveLength(2)
+    expect(printed).toContain('SET IDENTITY_INSERT client ON;')
+  })
+
+  it('runSeedJob (exécuté dans le worker) donne le même script que la chaîne directe, et les tables réduites', () => {
+    const mld = meriseToMld(shop)
+    const job = { mld, rows: 10, seed: 42, dialect: 'mysql' as const, autoIncrement: true, ef: { namespace: 'Demo', contextName: 'Ctx' } }
+    const direct = seedToSql(seedData(planSeed(mld, { rows: 10 }), { rows: 10, seed: 42 }), { dialect: 'mysql', autoIncrement: true })
+    expect(runSeedJob({ ...job, format: 'sql' }).code).toBe(direct)
+    expect(runSeedJob({ ...job, format: 'csharp' }).code).toContain('namespace Demo;')
+    expect(runSeedJob({ ...job, format: 'faker' }).code).toContain('faker.seed(42)')
+    expect(runSeedJob({ ...job, format: 'sql' }).reduced).toEqual([])
   })
 })

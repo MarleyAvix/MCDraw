@@ -298,13 +298,22 @@ export function seedData(plan: SeedPlan, options: Partial<SeedOptions> = {}): Se
     }
   }
 
-  /** Rend la valeur unique parmi celles déjà prises dans la colonne (suffixe numérique ou incrément). */
-  const makeUnique = (v: SeedValue, seen: Set<string>, i: number): SeedValue => {
-    let cur = v
-    for (let k = 0; seen.has(String(cur)); k++) {
+  /**
+   * Rend la valeur unique parmi celles déjà prises dans la colonne : incrément, jours ajoutés à une date, ou suffixe
+   * numérique placé dans la longueur permise (un suffixe tronqué ensuite recréerait le doublon).
+   */
+  const makeUnique = (v: SeedValue, plan: ValuePlan, seen: Set<string>, i: number): SeedValue => {
+    const fit = (s: string, suffix = '') =>
+      plan.maxLen ? s.slice(0, Math.max(0, plan.maxLen - suffix.length)) + suffix.slice(-plan.maxLen) : s + suffix
+    let cur = typeof v === 'string' ? fit(v) : v
+    // borne : une colonne trop courte pour le nombre de lignes ne peut pas être unique, inutile d'insister
+    for (let k = 0; seen.has(String(cur)) && k < 1000; k++) {
+      const n = i + 1 + k
       if (typeof cur === 'number') cur += 1
-      else if (typeof v === 'string' && v.includes('@')) cur = v.replace('@', `${i + 1 + k}@`)
-      else cur = `${v}${i + 1 + k}`
+      else if (typeof v !== 'string') break
+      else if (plan.kind === 'date' || plan.kind === 'datetime') cur = addDays(v, n)
+      else if (v.includes('@') && (!plan.maxLen || v.length + String(n).length <= plan.maxLen)) cur = v.replace('@', `${n}@`)
+      else cur = fit(v, String(n))
     }
     seen.add(String(cur))
     return cur
@@ -323,9 +332,8 @@ export function seedData(plan: SeedPlan, options: Partial<SeedOptions> = {}): Se
         else if (cp.source === 'value') {
           const v = cp.value!
           let val = text(v, row, tp.columns)
-          if (typeof val === 'string' && v.maxLen && !v.unique) val = val.slice(0, v.maxLen)
-          if (v.unique) val = makeUnique(val, seen[ci], i)
-          if (typeof val === 'string' && v.maxLen) val = val.slice(0, v.maxLen)
+          if (v.unique) val = makeUnique(val, v, seen[ci], i)
+          else if (typeof val === 'string' && v.maxLen) val = val.slice(0, v.maxLen)
           row[ci] = val
         }
       })
@@ -340,17 +348,22 @@ export function seedData(plan: SeedPlan, options: Partial<SeedOptions> = {}): Se
     }
     const parentTableOf = (fk: MldForeignKey) => (fk.refTable === t.name ? t : plan.tables.find((p) => p.table.name === fk.refTable)!.table)
 
-    // combinaisons distinctes de parents pour une table d'association
-    let combos: number[][] = []
+    // Combinaisons distinctes de parents pour une table d'association : tirage sans remise parmi toutes les
+    // combinaisons possibles, sans les énumérer (une ternaire à 100 lignes par parent en compte un million).
+    const combos: number[][] = []
     if (tp.combo.length) {
-      combos = [[]]
-      for (const fi of tp.combo) {
-        const n = parentRows(t.foreignKeys[fi]).length
-        combos = combos.flatMap((c) => Array.from({ length: n }, (_, k) => [...c, k]))
-      }
-      for (let i = combos.length - 1; i > 0; i--) {
-        const j = int(0, i)
-        ;[combos[i], combos[j]] = [combos[j], combos[i]]
+      const sizes = tp.combo.map((fi) => parentRows(t.foreignKeys[fi]).length)
+      const total = sizes.reduce((p, s) => p * s, 1)
+      const swapped = new Map<number, number>() // Fisher-Yates partiel sur un tableau virtuel 0…total-1
+      for (let i = 0; i < Math.min(tp.count, total); i++) {
+        const j = int(i, total - 1)
+        let rest = swapped.get(j) ?? j
+        swapped.set(j, swapped.get(i) ?? i)
+        combos.push(sizes.map((s) => {
+          const digit = rest % s
+          rest = Math.floor(rest / s)
+          return digit
+        }))
       }
     }
 
@@ -426,7 +439,13 @@ export function identityWrap(tp: TablePlan, o: SeedSqlOptions): { before: string
   return wrap
 }
 
-/** Script `INSERT INTO` : une instruction multi-lignes par table, dans l'ordre qui respecte les clés étrangères. */
+/**
+ * Lignes par instruction INSERT : SQL Server en refuse plus de 1 000 dans un même VALUES, et des lots plus courts
+ * ménagent la taille maximale d'une requête (max_allowed_packet de MySQL).
+ */
+export const INSERT_BATCH = 500
+
+/** Script `INSERT INTO` : des instructions multi-lignes par table, dans l'ordre qui respecte les clés étrangères. */
 export function seedToSql(data: SeedData, options: Partial<SeedSqlOptions> = {}): string {
   const o: SeedSqlOptions = { dialect: 'standard', autoIncrement: false, ...options }
   if (!data.tables.length) return '-- Aucune table : ajoutez des entités au MCD.\n'
@@ -436,11 +455,13 @@ export function seedToSql(data: SeedData, options: Partial<SeedSqlOptions> = {})
     if (!rows.length) continue
     const t = plan.table
     const wrap = identityWrap(plan, o)
-    const cols = t.columns.map((c) => q(c.name)).join(', ')
-    const values = rows.map((r) => `  (${r.map((v) => sqlLiteral(v, o.dialect)).join(', ')})`).join(',\n')
-    parts.push(
-      [...wrap.before, `INSERT INTO ${q(t.name)} (${cols})${wrap.override ? ' OVERRIDING SYSTEM VALUE' : ''} VALUES\n${values};`, ...wrap.after].join('\n'),
-    )
+    const head = `INSERT INTO ${q(t.name)} (${t.columns.map((c) => q(c.name)).join(', ')})${wrap.override ? ' OVERRIDING SYSTEM VALUE' : ''} VALUES`
+    const inserts: string[] = []
+    for (let k = 0; k < rows.length; k += INSERT_BATCH) {
+      const values = rows.slice(k, k + INSERT_BATCH).map((r) => `  (${r.map((v) => sqlLiteral(v, o.dialect)).join(', ')})`)
+      inserts.push(`${head}\n${values.join(',\n')};`)
+    }
+    parts.push([...wrap.before, ...inserts, ...wrap.after].join('\n'))
   }
   const warn = data.warnings.map((w) => `-- Attention : ${w}`).join('\n')
   return `-- Données fictives générées par MCDraw (${rowsSummary(data)})\n${warn ? warn + '\n' : ''}\n${parts.join('\n\n')}\n`

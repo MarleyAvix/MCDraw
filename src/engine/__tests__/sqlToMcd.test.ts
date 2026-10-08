@@ -171,3 +171,39 @@ describe('dump phpMyAdmin', () => {
     expect(r.warnings).toEqual(['Table(s) technique(s) ignorée(s) : __efmigrationshistory.'])
   })
 })
+
+describe('sqlToMcd : colonnes difficiles et scripts de migration', () => {
+  it('une colonne nommée key / period (PostgreSQL) reste une colonne, un index reste ignoré', () => {
+    const r = run(`
+      CREATE TABLE settings (key text PRIMARY KEY, value text, period varchar(7));
+      CREATE TABLE t (id INT PRIMARY KEY, nom VARCHAR(20), KEY idx_nom (nom), INDEX (nom));`)
+    expect(entity(r, 'settings').attributes.map((a) => `${a.name}${a.isPrimaryKey ? '#' : ''}`)).toEqual(['key#', 'value', 'period'])
+    expect(entity(r, 't').attributes.map((a) => a.name)).toEqual(['id', 'nom'])
+    expect(r.warnings).toEqual([])
+  })
+
+  it('ALTER TABLE … ADD [COLUMN] ajoute les colonnes, y compris plusieurs avec un seul ADD (SQL Server)', () => {
+    const r = run(`
+      CREATE TABLE client (id INT PRIMARY KEY);
+      ALTER TABLE client ADD COLUMN email VARCHAR(100) NOT NULL;
+      ALTER TABLE client ADD nom VARCHAR(50), prenom VARCHAR(50);
+      ALTER TABLE client ADD CONSTRAINT df_nom DEFAULT ('x') FOR nom;`)
+    const attrs = entity(r, 'client').attributes
+    expect(attrs.map((a) => a.name)).toEqual(['id', 'email', 'nom', 'prenom'])
+    expect(attrs[1]).toMatchObject({ type: 'VARCHAR', size: '100', notNull: true })
+  })
+
+  it('SQLite : une colonne sans type est gardée', () => {
+    const r = run('CREATE TABLE note (id INTEGER PRIMARY KEY, texte, auteur);')
+    expect(entity(r, 'note').attributes.map((a) => a.name)).toEqual(['id', 'texte', 'auteur'])
+  })
+
+  it("le nom déduit d'une association ne reprend pas celui d'une entité", () => {
+    const r = run(`
+      CREATE TABLE utilisateur (id INT PRIMARY KEY);
+      CREATE TABLE redacteur (id INT PRIMARY KEY);
+      CREATE TABLE article (id INT PRIMARY KEY, redacteur_id INT NOT NULL REFERENCES utilisateur(id));`)
+    const names = [...r.schema.entities, ...r.schema.relations].map((n) => n.name.toLowerCase())
+    expect(new Set(names).size).toBe(names.length)
+  })
+})

@@ -1,5 +1,5 @@
 import { efNames } from './mldToEfCore'
-import { COLORS, GENDERS, STATUSES, identityWrap, planSeed, type ColumnPlan, type SeedOptions, type SeedPlan, type ValuePlan } from './mldToSeed'
+import { COLORS, GENDERS, INSERT_BATCH, STATUSES, identityWrap, planSeed, type ColumnPlan, type SeedOptions, type SeedPlan, type ValuePlan } from './mldToSeed'
 import { quoteIdent, type SqlDialect } from './mldToSql'
 import type { MldResult } from '../types/schema'
 
@@ -25,26 +25,29 @@ export interface BogusOptions {
 const camel = (s: string) => s.replace(/^./, (x) => x.toLowerCase())
 
 function bogusValue(cp: ColumnPlan, v: ValuePlan, prevNullable: boolean): { expr: string; usesRow: boolean } {
-  const clamp = (e: string) => (v.maxLen && v.maxLen < SHORT ? `${e.includes(' + ') ? `(${e})` : e}.ClampLength(max: ${v.maxLen})` : e)
-  const uniq = (e: string) => (v.unique ? `${e} + f.IndexFaker` : e)
+  const short = !!v.maxLen && v.maxLen < SHORT
+  const clamp = (e: string) => (short ? `${e.includes(' + ') ? `(${e})` : e}.ClampLength(max: ${v.maxLen})` : e)
+  // valeur unique : c'est le texte qui est raccourci, pas le suffixe (sinon le doublon revient)
+  const uniq = (e: string) =>
+    !v.unique ? clamp(e) : short ? `${e}.ClampLength(max: Math.Max(0, ${v.maxLen} - f.IndexFaker.ToString().Length)) + f.IndexFaker` : `${e} + f.IndexFaker`
   const range = `${v.min}, ${v.max}`
   switch (v.kind) {
     case 'email': return { expr: clamp(v.unique ? 'f.Internet.Email(uniqueSuffix: f.IndexFaker.ToString())' : 'f.Internet.Email()'), usesRow: false }
-    case 'firstName': return { expr: clamp(uniq('f.Name.FirstName()')), usesRow: false }
-    case 'lastName': return { expr: clamp(uniq('f.Name.LastName()')), usesRow: false }
-    case 'productName': return { expr: clamp(uniq('f.Commerce.ProductName()')), usesRow: false }
-    case 'word': return { expr: clamp(uniq('f.Lorem.Word()')), usesRow: false }
-    case 'city': return { expr: clamp(uniq('f.Address.City()')), usesRow: false }
-    case 'country': return { expr: clamp(uniq('f.Address.Country()')), usesRow: false }
+    case 'firstName': return { expr: uniq('f.Name.FirstName()'), usesRow: false }
+    case 'lastName': return { expr: uniq('f.Name.LastName()'), usesRow: false }
+    case 'productName': return { expr: uniq('f.Commerce.ProductName()'), usesRow: false }
+    case 'word': return { expr: uniq('f.Lorem.Word()'), usesRow: false }
+    case 'city': return { expr: uniq('f.Address.City()'), usesRow: false }
+    case 'country': return { expr: uniq('f.Address.Country()'), usesRow: false }
     case 'zip': return { expr: clamp('f.Address.ZipCode()'), usesRow: false }
-    case 'phone': return { expr: clamp(uniq('f.Phone.PhoneNumber()')), usesRow: false }
-    case 'street': return { expr: clamp(uniq('f.Address.StreetAddress()')), usesRow: false }
-    case 'company': return { expr: clamp(uniq('f.Company.CompanyName()')), usesRow: false }
-    case 'url': return { expr: clamp(uniq('f.Internet.Url()')), usesRow: false }
-    case 'title': return { expr: clamp(uniq("f.Lorem.Sentence(3).TrimEnd('.')")), usesRow: false }
+    case 'phone': return { expr: uniq('f.Phone.PhoneNumber()'), usesRow: false }
+    case 'street': return { expr: uniq('f.Address.StreetAddress()'), usesRow: false }
+    case 'company': return { expr: uniq('f.Company.CompanyName()'), usesRow: false }
+    case 'url': return { expr: uniq('f.Internet.Url()'), usesRow: false }
+    case 'title': return { expr: uniq("f.Lorem.Sentence(3).TrimEnd('.')"), usesRow: false }
     case 'text': return { expr: clamp('f.Lorem.Paragraph()'), usesRow: false }
-    case 'color': return { expr: clamp(uniq('f.Commerce.Color()')), usesRow: false }
-    case 'username': return { expr: clamp(uniq('f.Internet.UserName()')), usesRow: false }
+    case 'color': return { expr: uniq('f.Commerce.Color()'), usesRow: false }
+    case 'username': return { expr: uniq('f.Internet.UserName()'), usesRow: false }
     case 'password': return { expr: clamp('f.Internet.Password()'), usesRow: false }
     case 'status': return { expr: `f.PickRandom(${pickList(STATUSES)})`, usesRow: false }
     case 'gender': return { expr: `f.PickRandom(${pickList(GENDERS)})`, usesRow: false }
@@ -188,25 +191,27 @@ export interface FakerScriptOptions {
 }
 
 function fakerValue(v: ValuePlan): string {
-  const clamp = (e: string) => (v.maxLen && v.maxLen < SHORT ? `${e.includes(' + ') ? `(${e})` : e}.slice(0, ${v.maxLen})` : e)
-  const uniq = (e: string) => (v.unique ? `${e} + i` : e)
+  const short = !!v.maxLen && v.maxLen < SHORT
+  const clamp = (e: string) => (short ? `${e.includes(' + ') ? `(${e})` : e}.slice(0, ${v.maxLen})` : e)
+  // valeur unique : c'est le texte qui est raccourci, pas le suffixe (sinon le doublon revient)
+  const uniq = (e: string) => (!v.unique ? clamp(e) : short ? `${e}.slice(0, Math.max(0, ${v.maxLen} - String(i).length)) + i` : `${e} + i`)
   switch (v.kind) {
     case 'email': return clamp(v.unique ? "faker.internet.email().replace('@', `${i}@`)" : 'faker.internet.email()')
-    case 'firstName': return clamp(uniq('faker.person.firstName()'))
-    case 'lastName': return clamp(uniq('faker.person.lastName()'))
-    case 'productName': return clamp(uniq('faker.commerce.productName()'))
-    case 'word': return clamp(uniq('faker.lorem.word()'))
-    case 'city': return clamp(uniq('faker.location.city()'))
-    case 'country': return clamp(uniq('faker.location.country()'))
+    case 'firstName': return uniq('faker.person.firstName()')
+    case 'lastName': return uniq('faker.person.lastName()')
+    case 'productName': return uniq('faker.commerce.productName()')
+    case 'word': return uniq('faker.lorem.word()')
+    case 'city': return uniq('faker.location.city()')
+    case 'country': return uniq('faker.location.country()')
     case 'zip': return clamp('faker.location.zipCode()')
-    case 'phone': return clamp(uniq('faker.phone.number()'))
-    case 'street': return clamp(uniq('faker.location.streetAddress()'))
-    case 'company': return clamp(uniq('faker.company.name()'))
-    case 'url': return clamp(uniq('faker.internet.url()'))
-    case 'title': return clamp(uniq("faker.lorem.sentence({ min: 2, max: 4 }).replace(/\\.$/, '')"))
+    case 'phone': return uniq('faker.phone.number()')
+    case 'street': return uniq('faker.location.streetAddress()')
+    case 'company': return uniq('faker.company.name()')
+    case 'url': return uniq('faker.internet.url()')
+    case 'title': return uniq("faker.lorem.sentence({ min: 2, max: 4 }).replace(/\\.$/, '')")
     case 'text': return clamp('faker.lorem.paragraph()')
-    case 'color': return clamp(uniq(`faker.helpers.arrayElement([${pickList(COLORS)}])`))
-    case 'username': return clamp(uniq('faker.internet.username()'))
+    case 'color': return uniq(`faker.helpers.arrayElement([${pickList(COLORS)}])`)
+    case 'username': return uniq('faker.internet.username()')
     case 'password': return clamp('faker.internet.password()')
     case 'status': return `faker.helpers.arrayElement([${pickList(STATUSES)}])`
     case 'gender': return `faker.helpers.arrayElement([${pickList(GENDERS)}])`
@@ -256,10 +261,15 @@ export function seedToFaker(mld: MldResult, seedOptions: Partial<SeedOptions> = 
   w(`const literal = (v) =>`)
   w(`  v === null ? 'NULL' : typeof v === 'number' ? String(v) : typeof v === 'boolean' ? (${bool}) : \`${o.dialect === 'sqlserver' ? 'N' : ''}'\${String(v).replace(/'/g, "''")}'\``)
   w('const out = []')
+  w(`// Par lots de ${INSERT_BATCH} lignes : SQL Server refuse plus de 1 000 lignes dans un même VALUES.`)
   w('const insert = (table, columns, rows, { before = [], after = [], override = false } = {}) => {')
-  w('  const values = rows.map((r) => `  (${columns.map(([name]) => literal(r[name])).join(\', \')})`).join(\',\\n\')')
   w("  const names = columns.map(([, sql]) => sql).join(', ')")
-  w("  out.push([...before, `INSERT INTO ${table} (${names})${override ? ' OVERRIDING SYSTEM VALUE' : ''} VALUES\\n${values};`, ...after].join('\\n'))")
+  w('  const inserts = []')
+  w(`  for (let k = 0; k < rows.length; k += ${INSERT_BATCH}) {`)
+  w(`    const values = rows.slice(k, k + ${INSERT_BATCH}).map((r) => \`  (\${columns.map(([name]) => literal(r[name])).join(', ')})\`).join(',\\n')`)
+  w("    inserts.push(`INSERT INTO ${table} (${names})${override ? ' OVERRIDING SYSTEM VALUE' : ''} VALUES\\n${values};`)")
+  w('  }')
+  w("  out.push([...before, ...inserts, ...after].join('\\n'))")
   w('}')
   for (const w2 of plan.warnings) w(`// Attention : ${w2}`)
 

@@ -31,8 +31,8 @@ const tables = computed(() => mld.value.tables.map((t) => ({ t, cols: splitColum
       </button>
     </div>
 
-    <div v-if="mld.warnings.length" class="m-3 space-y-1 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-      <p v-for="(w, i) in mld.warnings" :key="i" class="flex gap-1.5"><AlertTriangle :size="14" class="mt-0.5 shrink-0" /> {{ w }}</p>
+    <div v-if="store.mldWarnings.length" class="m-3 space-y-1 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+      <p v-for="(w, i) in store.mldWarnings" :key="i" class="flex gap-1.5"><AlertTriangle :size="14" class="mt-0.5 shrink-0" /> {{ w }}</p>
     </div>
 
     <p v-if="!mld.tables.length" class="p-4 text-sm italic text-slate-400">Ajoutez des entités pour voir le MLD.</p>

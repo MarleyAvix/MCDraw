@@ -1,4 +1,4 @@
-import type { MldColumn, MldResult } from '../types/schema'
+import type { MldColumn, MldResult, RefAction } from '../types/schema'
 import { isAutoIncrement, sqlDefault, type SqlDialect, type SqlOptions } from './mldToSql'
 import { baseType, lengthOf, ormModel, precisionOf } from './ormModel'
 
@@ -110,11 +110,16 @@ export function mldToPrisma(mld: MldResult, options: Partial<SqlOptions> & { ver
       const hostCls = className.get(r.host.name)!
       const relName = r.name ? `${str(r.name)}, ` : ''
       if (r.host === t) {
+        // SQL Server : Prisma n'y accepte pas Restrict (NoAction est l'équivalent) et applique sinon Cascade aux mises à
+        // jour, ce que SQL Server refuse sur une auto-référence : l'action de mise à jour est donc toujours explicite.
+        const sqlServer = o.dialect === 'sqlserver'
+        const action = (a: RefAction) => (sqlServer && a === 'RESTRICT' ? 'NoAction' : PRISMA_ACTION[a])
+        const onUpdate = r.fk.onUpdate ?? (sqlServer ? 'NO ACTION' : undefined)
         const args = [
           `fields: [${r.fk.columns.map((c) => p.get(c)).join(', ')}]`,
           `references: [${r.fk.refColumns.map((c) => props.get(r.target.name)!.get(c)).join(', ')}]`,
-          `onDelete: ${PRISMA_ACTION[r.fk.onDelete ?? 'RESTRICT']}`,
-          ...(r.fk.onUpdate ? [`onUpdate: ${PRISMA_ACTION[r.fk.onUpdate]}`] : []),
+          `onDelete: ${action(r.fk.onDelete ?? 'RESTRICT')}`,
+          ...(onUpdate ? [`onUpdate: ${action(onUpdate)}`] : []),
         ]
         rows.push([r.field, targetCls + (r.nullable ? '?' : ''), `@relation(${relName}${args.join(', ')})`])
       }

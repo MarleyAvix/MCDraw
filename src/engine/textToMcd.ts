@@ -83,6 +83,7 @@ export function parseMcdText(text: string, makeId: () => string): ParseResult {
   const byName = new Map<string, Entity>()
   const parents: { entity: Entity; parent: string; line: number }[] = []
   const pending: { head: Head; line: number }[] = []
+  const declared: { entity: Entity; untyped: Set<Attribute>; child: boolean }[] = []
 
   /** Attributs d'une liste « a, #b:INT, c:VARCHAR(50) » ; `untyped` reçoit ceux dont le type est à déduire. */
   const parseAttrs = (src: string, line: number, isEntity: boolean, untyped = new Set<Attribute>()): Attribute[] => {
@@ -122,12 +123,10 @@ export function parseMcdText(text: string, makeId: () => string): ParseResult {
       if (byName.has(key(head.name))) return err(line, `Entité « ${head.name} » déjà déclarée.`)
       const untyped = new Set<Attribute>()
       const attributes = parseAttrs(head.body, line, true, untyped)
-      if (!head.parent && attributes.length && !attributes.some((a) => a.isPrimaryKey)) attributes[0].isPrimaryKey = true
-      // Type omis : INT pour un identifiant, VARCHAR sinon.
-      for (const a of attributes) if (untyped.has(a) && a.isPrimaryKey) a.type = 'INT'
       const entity: Entity = { id: makeId(), name: head.name, attributes, x: 0, y: 0 }
       entities.push(entity)
       byName.set(key(head.name), entity)
+      declared.push({ entity, untyped, child: !!head.parent })
       if (head.parent) parents.push({ entity, parent: head.parent, line })
     }
   })
@@ -182,6 +181,16 @@ export function parseMcdText(text: string, makeId: () => string): ParseResult {
     links.push(...legs)
   }
 
+  // Identifiant implicite (le premier attribut), sauf pour une classe fille (il est hérité) et pour une entité faible
+  // qui n'a que l'identifiant de son parent : « Détail: quantite:INT » identifiée par « … -- Détail 1,1 CIF ».
+  const weak = new Set(links.filter((l) => l.identifying).map((l) => l.entityId))
+  for (const { entity, untyped, child } of declared) {
+    const attrs = entity.attributes
+    if (!child && !weak.has(entity.id) && attrs.length && !attrs.some((a) => a.isPrimaryKey)) attrs[0].isPrimaryKey = true
+    // Type omis : INT pour un identifiant, VARCHAR sinon.
+    for (const a of attrs) if (untyped.has(a) && a.isPrimaryKey) a.type = 'INT'
+  }
+
   errors.sort((x, y) => x.line - y.line)
   return { schema: { entities, relations, links }, errors }
 }
@@ -194,8 +203,8 @@ const sideToward = (from: { x: number; y: number }, to: { x: number; y: number }
   return Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'r' : 'l') : dy >= 0 ? 'b' : 't'
 }
 
-const sizeOfEntity = (e: Entity) => ({ w: 200, h: 73 + 24 * Math.max(e.attributes.length, 1) })
-const sizeOfRelation = (r: Relation) => ({ w: 130, h: 90 + 12 * r.attributes.length })
+const sizeOfEntity = (e: { attributes: unknown[] }) => ({ w: 200, h: 73 + 24 * Math.max(e.attributes.length, 1) })
+const sizeOfRelation = (r: { attributes: unknown[] }) => ({ w: 130, h: 90 + 12 * r.attributes.length })
 
 /** Dispose les nœuds avec dagre (entité → association → entité sur des rangs successifs), orientation au plus proche d'un écran 16:10. */
 export function layoutMcd(schema: MeriseSchema, origin = { x: 0, y: 0 }): MeriseSchema {
@@ -239,7 +248,11 @@ export function layoutMcd(schema: MeriseSchema, origin = { x: 0, y: 0 }): Merise
 
 // --- MCD → texte ---------------------------------------------------------
 
-const word = (s: string) => s.trim().replace(/\s+/g, '_') || 'sans_nom'
+/** Nom réduit à un mot que l'analyseur sait relire (lettres, chiffres, « _ ») ; `mergeMcd` retrouve le nom d'origine. */
+const word = (s: string) => {
+  const w = s.trim().replace(/[^\p{L}\p{N}_]+/gu, '_')
+  return !w ? 'sans_nom' : /^\p{N}/u.test(w) ? `_${w}` : w
+}
 
 /** Écrit le MCD dans la syntaxe de saisie (point de départ pour modifier un schéma existant au clavier). */
 export function mcdToText(schema: MeriseSchema): string {
@@ -266,4 +279,131 @@ export function mcdToText(schema: MeriseSchema): string {
     lines.push(`${word(r.name)}${props}: ${parts.join(' -- ')}`)
   }
   return lines.join('\n') + (lines.length ? '\n' : '')
+}
+
+// --- Texte appliqué au MCD existant -----------------------------------------
+
+/**
+ * Applique au MCD existant un schéma relu depuis le texte (bouton « Générer »). Un élément retrouvé sous le même nom
+ * garde son identifiant, sa position et ce que la syntaxe texte ne décrit pas : contraintes de colonne (NOT NULL,
+ * UNIQUE, défaut, CHECK), stratégie d'héritage, nom de table, actions ON DELETE / ON UPDATE, points d'accroche.
+ * Les nouveaux éléments sont placés à droite de l'existant ; une nouvelle association entre entités existantes, entre elles.
+ */
+export function mergeMcd(previous: MeriseSchema, parsed: MeriseSchema): MeriseSchema {
+  const norm = (s: string) => key(word(s))
+  /** Appariement par nom normalisé ; des homonymes sont appariés dans l'ordre. */
+  const matcher = <T>(items: T[], name: (x: T) => string) => {
+    const queues = new Map<string, T[]>()
+    for (const x of items) queues.set(name(x), [...(queues.get(name(x)) ?? []), x])
+    return (n: string) => queues.get(n)?.shift()
+  }
+  /** Le texte n'écrit que des mots : un nom inchangé une fois réduit à un mot garde sa forme d'origine (espaces, tirets…). */
+  const keepName = (old: string, fresh: string) => (word(old) === fresh ? old : fresh)
+  const mergeAttrs = (olds: Attribute[], fresh: Attribute[]): Attribute[] => {
+    const take = matcher(olds, (a) => norm(a.name))
+    return fresh.map((a) => {
+      const o = take(norm(a.name))
+      if (!o) return { ...a }
+      const out: Attribute = { ...o, name: keepName(o.name, a.name), type: a.type, isPrimaryKey: a.isPrimaryKey }
+      if (a.size) out.size = a.size
+      else delete out.size
+      return out
+    })
+  }
+
+  const finalId = new Map<string, string>() // identifiant lu dans le texte → identifiant retenu
+  const idOf = (id: string) => finalId.get(id) ?? id
+  const kept = new Set<string>() // nœuds existants retrouvés : ils gardent leur position
+
+  const takeEntity = matcher(previous.entities, (e) => norm(e.name))
+  const entities: Entity[] = parsed.entities.map((e) => {
+    const o = takeEntity(norm(e.name))
+    if (!o) return { ...e }
+    finalId.set(e.id, o.id)
+    kept.add(o.id)
+    return { ...o, name: keepName(o.name, e.name), attributes: mergeAttrs(o.attributes, e.attributes) }
+  })
+  // La hiérarchie « est un » vient du texte.
+  parsed.entities.forEach((e, i) => {
+    if (e.parentId) entities[i].parentId = idOf(e.parentId)
+    else delete entities[i].parentId
+  })
+
+  const takeRelation = matcher(previous.relations, (r) => norm(r.name))
+  const relations: Relation[] = parsed.relations.map((r) => {
+    const o = takeRelation(norm(r.name))
+    if (!o) return { ...r }
+    finalId.set(r.id, o.id)
+    kept.add(o.id)
+    return { ...o, name: keepName(o.name, r.name), attributes: mergeAttrs(o.attributes, r.attributes) }
+  })
+
+  // Une patte est retrouvée par son association, son entité et son rôle.
+  const oldName = new Map([...previous.entities, ...previous.relations].map((n) => [n.id, n.name]))
+  const newName = new Map([...parsed.entities, ...parsed.relations].map((n) => [n.id, n.name]))
+  const legKey = (names: Map<string, string>, l: Link) =>
+    [names.get(l.relationId) ?? '', names.get(l.entityId) ?? '', l.role ?? ''].map(norm).join('|')
+  const takeLink = matcher(previous.links, (l) => legKey(oldName, l))
+  const added = new Set<Link>()
+  const links: Link[] = parsed.links.map((l) => {
+    const out: Link = { ...l, relationId: idOf(l.relationId), entityId: idOf(l.entityId) }
+    const o = takeLink(legKey(newName, l))
+    if (!o) {
+      added.add(out)
+      return out
+    }
+    out.id = o.id
+    if (o.role && l.role) out.role = keepName(o.role, l.role)
+    if (o.onDelete) out.onDelete = o.onDelete
+    if (o.onUpdate) out.onUpdate = o.onUpdate
+    if (o.relationHandle) out.relationHandle = o.relationHandle
+    if (o.entityHandle) out.entityHandle = o.entityHandle
+    return out
+  })
+
+  if (!kept.size) return layoutMcd({ entities, relations, links }) // rien en commun : nouvelle mise en page
+
+  const relIds = new Set(relations.map((r) => r.id))
+  const sizeOf = (n: Entity | Relation) => (relIds.has(n.id) ? sizeOfRelation(n) : sizeOfEntity(n))
+  const center = (n: Entity | Relation) => ({ x: n.x + sizeOf(n).w / 2, y: n.y + sizeOf(n).h / 2 })
+  const byId = new Map<string, Entity | Relation>([...entities, ...relations].map((n) => [n.id, n]))
+  const placed = new Set(kept)
+
+  // Nouvelle association entre entités existantes : au milieu d'elles (à droite de l'entité pour une réflexive).
+  for (const r of relations) {
+    if (placed.has(r.id)) continue
+    const ends = [...new Set(links.filter((l) => l.relationId === r.id).map((l) => l.entityId))]
+    if (!ends.length || !ends.every((id) => kept.has(id))) continue
+    const cs = ends.map((id) => center(byId.get(id)!))
+    const c = { x: cs.reduce((s, p) => s + p.x, 0) / cs.length, y: cs.reduce((s, p) => s + p.y, 0) / cs.length }
+    if (ends.length === 1) c.x += sizeOf(byId.get(ends[0])!).w / 2 + 120
+    r.x = c.x - sizeOf(r).w / 2
+    r.y = c.y - sizeOf(r).h / 2
+    placed.add(r.id)
+  }
+
+  // Autres nouveautés : mise en page d'ensemble, décalée à droite des éléments existants.
+  const rest = [...entities, ...relations].filter((n) => !placed.has(n.id))
+  if (rest.length) {
+    const laid = layoutMcd({ entities, relations, links })
+    const at = new Map([...laid.entities, ...laid.relations].map((n) => [n.id, n]))
+    const keptNodes = [...entities, ...relations].filter((n) => kept.has(n.id))
+    const right = Math.max(...keptNodes.map((n) => n.x + sizeOf(n).w))
+    const top = Math.min(...keptNodes.map((n) => n.y))
+    const minX = Math.min(...rest.map((n) => at.get(n.id)!.x))
+    const minY = Math.min(...rest.map((n) => at.get(n.id)!.y))
+    for (const n of rest) {
+      n.x = at.get(n.id)!.x - minX + right + 80
+      n.y = at.get(n.id)!.y - minY + top
+    }
+  }
+
+  // Points d'accroche des nouvelles pattes ; les pattes retrouvées gardent les leurs.
+  for (const l of added) {
+    const e = center(byId.get(l.entityId)!)
+    const r = center(byId.get(l.relationId)!)
+    l.entityHandle ??= sideToward(e, r)
+    l.relationHandle ??= sideToward(r, e)
+  }
+  return { entities, relations, links }
 }

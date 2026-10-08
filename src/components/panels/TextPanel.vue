@@ -26,7 +26,7 @@ import { computed, watch } from 'vue'
 import { useVueFlow } from '@vue-flow/core'
 import { AlertTriangle, CheckCircle2, FilePlus2, RefreshCw, Wand2, X } from 'lucide-vue-next'
 import { useSchemaStore } from '../../stores/schemaStore'
-import { layoutMcd, mcdToText, parseMcdText } from '../../engine/textToMcd'
+import { layoutMcd, mcdToText, mergeMcd, parseMcdText } from '../../engine/textToMcd'
 
 const store = useSchemaStore()
 const { fitView } = useVueFlow('mcdraw')
@@ -44,12 +44,15 @@ watch(draft, (v) => {
   }
 })
 
-/** Remplace le MCD (annulable par Ctrl+Z) ou, en mode ajout, place le nouveau schéma à droite de l'existant. */
+/**
+ * Applique le texte au MCD (annulable par Ctrl+Z) : les éléments déjà présents gardent leur position et ce que le texte
+ * ne décrit pas (contraintes, ON DELETE…). En mode ajout, le schéma est placé à droite de l'existant.
+ */
 function apply(mode: 'replace' | 'append') {
   if (!canApply.value) return
   const fresh = parsed.value.schema
   if (mode === 'replace') {
-    store.importSchema(layoutMcd(fresh))
+    store.importSchema(mergeMcd(store.schema, fresh))
   } else {
     const right = Math.max(0, ...[...store.entities, ...store.relations].map((n) => n.x + 200))
     const added = layoutMcd(fresh, { x: store.entities.length || store.relations.length ? right + 80 : 0, y: 0 })
@@ -103,7 +106,7 @@ const lineNumber = (n: number) => `L${n}`
       <button
         class="inline-flex items-center gap-1.5 rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
         :disabled="!canApply"
-        title="Remplace le MCD actuel (Ctrl+Z pour annuler)"
+        title="Remplace le MCD par ce texte ; les éléments existants gardent leur position et leurs contraintes (Ctrl+Z pour annuler)"
         @click="apply('replace')"
       >
         <Wand2 :size="14" /> Générer

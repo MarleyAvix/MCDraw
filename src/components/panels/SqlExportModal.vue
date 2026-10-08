@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, ref, shallowRef, watch } from 'vue'
-import { Check, Copy, Dices, Download } from 'lucide-vue-next'
+import { computed, onUnmounted, ref, watch } from 'vue'
+import { AlertTriangle, Check, Copy, Dices, Download, Loader2, RotateCw } from 'lucide-vue-next'
 import { useSchemaStore } from '../../stores/schemaStore'
 import BaseModal from '../modals/BaseModal.vue'
 import { DIALECT_LABELS, SQL_DIALECTS } from '../../engine/mldToSql'
@@ -9,6 +9,8 @@ import { mldToPrisma, PRISMA_VERSIONS, type PrismaVersion } from '../../engine/m
 import { mldToTypeOrm } from '../../engine/mldToTypeOrm'
 import { diagramToText, LANGUAGE_LABELS, NOTATION_LABELS, type DiagramLanguage, type DiagramNotation } from '../../engine/diagramToText'
 import { downloadBlob } from '../../composables/useFileIO'
+import { useSeedWorker } from '../../composables/useSeedWorker'
+import type { SeedJob } from '../../engine/seedJob'
 
 const store = useSchemaStore()
 const copied = ref(false)
@@ -24,9 +26,9 @@ const SEED_FORMATS = {
   faker: { label: 'JavaScript — Faker', file: 'seed.mjs' },
 } as const
 const seed = ref({ rows: 10, seed: 42, format: 'sql' as keyof typeof SEED_FORMATS })
-// Plafond à 100 : au-delà, la génération + la coloration du script font ramer le modal (voir ROADMAP).
-const SEED_MAX_ROWS = 100
-const SEED_ROW_PRESETS = [10, 25, 50, 100]
+// Génération dans un Web Worker et aperçu tronqué : 1 000 lignes par table restent fluides.
+const SEED_MAX_ROWS = 1000
+const SEED_ROW_PRESETS = [10, 100, 500, 1000]
 const clampRows = (n: number) => Math.min(Math.max(Math.floor(n) || 1, 1), SEED_MAX_ROWS)
 const seedRows = computed(() => clampRows(seed.value.rows))
 // Le champ est corrigé dès la saisie : la valeur affichée est toujours celle réellement générée.
@@ -38,6 +40,8 @@ watch(
   },
 )
 const reroll = () => (seed.value.seed = Math.floor(Math.random() * 100000))
+// Onglets dont le code dépend du dialecte : on y rappelle ce que SQL Server refuserait.
+const showDialectWarnings = computed(() => ['sql', 'prisma', 'typeorm'].includes(tab.value) && store.dialectWarnings.length > 0)
 const lang = computed(() =>
   tab.value === 'diagram'
     ? diagram.value.language
@@ -52,34 +56,41 @@ const lang = computed(() =>
           : 'sql',
 )
 
-// Faker est volumineux : il n'est chargé qu'à la première ouverture de l'onglet.
-const seedLib = shallowRef<{ data: typeof import('../../engine/mldToSeed'); scripts: typeof import('../../engine/seedScripts') } | null>(null)
+// Données fictives : générées dans un Web Worker (Faker n'est jamais chargé sur le fil principal).
+const generator = useSeedWorker()
+const seedJob = computed<SeedJob>(() => ({
+  // copie en données simples : seules celles-ci traversent la frontière du worker
+  mld: JSON.parse(JSON.stringify(store.mld)),
+  format: seed.value.format,
+  rows: seedRows.value,
+  seed: seed.value.seed,
+  dialect: store.sqlOptions.dialect,
+  autoIncrement: store.sqlOptions.autoIncrement,
+  ef: { namespace: ef.value.namespace, contextName: ef.value.contextName },
+}))
+// Pendant la frappe (nombre de lignes, graine), on attend une courte pause avant de relancer la génération.
+const typing = ref(false)
+let debounce: ReturnType<typeof setTimeout> | undefined
 watch(
-  tab,
-  async (t) => {
-    if (t !== 'seed' || seedLib.value) return
-    const [data, scripts] = await Promise.all([import('../../engine/mldToSeed'), import('../../engine/seedScripts')])
-    seedLib.value = { data, scripts }
+  [tab, seedJob],
+  ([t], [previousTab]) => {
+    clearTimeout(debounce)
+    typing.value = false
+    if (t !== 'seed') return
+    typing.value = true
+    debounce = setTimeout(() => {
+      typing.value = false
+      generator.request(seedJob.value)
+    }, t !== previousTab ? 0 : 250)
   },
   { immediate: true },
 )
-
-function seedCode(): string {
-  if (!seedLib.value) return '-- Chargement du générateur de données…'
-  const { data, scripts } = seedLib.value
-  const opts = { rows: seedRows.value, seed: seed.value.seed }
-  const { dialect, autoIncrement } = store.sqlOptions
-  if (seed.value.format === 'csharp') return scripts.seedToBogus(store.mld, opts, ef.value)
-  if (seed.value.format === 'faker') return scripts.seedToFaker(store.mld, opts, { dialect, autoIncrement })
-  return data.seedToSql(data.seedData(data.planSeed(store.mld, opts), opts), { dialect, autoIncrement })
-}
+onUnmounted(() => clearTimeout(debounce))
+/** Le script affiché ne correspond pas encore aux réglages : génération en attente ou en cours. */
+const seedPending = computed(() => typing.value || generator.busy.value)
 
 // Tables qui auront moins de lignes que demandé (relation 1-1, table d'association limitée par ses parents).
-const reducedTables = computed(() => {
-  if (tab.value !== 'seed' || !seedLib.value) return []
-  const plan = seedLib.value.data.planSeed(store.mld, { rows: seedRows.value, seed: seed.value.seed })
-  return plan.tables.filter((t) => t.count < seedRows.value).map((t) => `${t.table.name} (${t.count})`)
-})
+const reducedTables = computed(() => (tab.value === 'seed' ? generator.result.value?.reduced ?? [] : []))
 
 const code = computed(() => {
   switch (tab.value) {
@@ -94,9 +105,21 @@ const code = computed(() => {
     case 'diagram':
       return diagramToText(store.schema, diagram.value)
     default:
-      return seedCode()
+      return generator.result.value?.code ?? ''
   }
 })
+
+// Aperçu : seules les premières lignes sont colorées et affichées ; Copier / Télécharger prennent tout le script.
+const PREVIEW_LINES = 300
+const preview = computed(() => {
+  const lines = code.value.split('\n')
+  if (lines.at(-1) === '') lines.pop()
+  return lines.length > PREVIEW_LINES
+    ? { text: lines.slice(0, PREVIEW_LINES).join('\n'), total: lines.length, truncated: true }
+    : { text: code.value, total: lines.length, truncated: false }
+})
+/** Copier / Télécharger donneraient un script périmé (ou vide) tant que la génération n'est pas terminée. */
+const actionsDisabled = computed(() => tab.value === 'seed' && (seedPending.value || !generator.result.value))
 
 const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
@@ -119,7 +142,7 @@ const PLANTUML_TOKEN =
 const TOKEN_CLASS =['', 'text-slate-500 italic', 'text-indigo-300 font-semibold', 'text-emerald-300', 'text-amber-300', 'text-sky-300', '']
 
 const highlighted = computed(() => {
-  const src = code.value
+  const src = preview.value.text
   const re = { mermaid: MERMAID_TOKEN, plantuml: PLANTUML_TOKEN, sql: SQL_TOKEN, js: JS_TOKEN, ts: TS_TOKEN, prisma: PRISMA_TOKEN, cs: CS_TOKEN }[lang.value]
   let out = ''
   let last = 0
@@ -249,12 +272,41 @@ const field = 'rounded border border-slate-300 px-2 py-1'
       Moins de {{ seedRows }} lignes pour : {{ reducedTables.join(', ') }} — limité par une relation 1-1 ou par le nombre de combinaisons possibles.
     </p>
 
-    <pre class="overflow-x-auto rounded-md bg-[#0d1117] p-4 font-mono text-xs leading-relaxed text-[#e2e8f0]" v-html="highlighted" />
+    <ul v-if="showDialectWarnings" class="mb-3 space-y-1 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+      <li v-for="(w, i) in store.dialectWarnings" :key="i" class="flex gap-1.5">
+        <AlertTriangle :size="13" class="mt-0.5 shrink-0" /> <span>{{ w }}</span>
+      </li>
+    </ul>
+
+    <div v-if="tab === 'seed' && generator.error.value" class="mb-3 flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-700" role="alert">
+      <AlertTriangle :size="14" class="mt-0.5 shrink-0" />
+      <span class="flex-1">{{ generator.error.value }}</span>
+      <button class="inline-flex shrink-0 items-center gap-1 rounded px-2 py-0.5 font-medium hover:bg-red-100" @click="generator.retry()">
+        <RotateCw :size="12" /> Réessayer
+      </button>
+    </div>
+
+    <div class="relative" :aria-busy="tab === 'seed' && seedPending">
+      <pre
+        class="min-h-24 overflow-x-auto rounded-md bg-[#0d1117] p-4 font-mono text-xs leading-relaxed text-[#e2e8f0] transition-opacity"
+        :class="tab === 'seed' && seedPending ? 'opacity-40' : ''"
+        v-html="highlighted"
+      />
+      <div v-if="tab === 'seed' && seedPending" class="pointer-events-none absolute inset-x-0 top-6 flex justify-center">
+        <span class="inline-flex items-center gap-2 rounded-full bg-surface px-3 py-1.5 text-sm shadow-lg" role="status">
+          <Loader2 :size="14" class="animate-spin text-indigo-600" />
+          {{ generator.result.value ? 'Génération des données…' : 'Chargement du générateur…' }}
+        </span>
+      </div>
+    </div>
+    <p v-if="preview.truncated" class="mt-2 text-xs text-slate-500">
+      Aperçu des {{ PREVIEW_LINES }} premières lignes sur {{ preview.total.toLocaleString('fr-FR') }} : « Copier » et « Télécharger » donnent le script complet.
+    </p>
     <template #footer>
-      <button class="inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-sm hover:bg-slate-100" @click="download">
+      <button class="inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-sm hover:bg-slate-100 disabled:cursor-wait disabled:opacity-40" :disabled="actionsDisabled" @click="download">
         <Download :size="14" /> Télécharger {{ fileName }}
       </button>
-      <button class="inline-flex items-center gap-1.5 rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700" @click="copy">
+      <button class="inline-flex items-center gap-1.5 rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-wait disabled:opacity-40" :disabled="actionsDisabled" @click="copy">
         <component :is="copied ? Check : Copy" :size="14" /> {{ copied ? 'Copié !' : 'Copier' }}
       </button>
     </template>

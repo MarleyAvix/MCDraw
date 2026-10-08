@@ -107,3 +107,18 @@ describe('mldToTypeOrm', () => {
     expect(mldToTypeOrm(dt, { dialect: 'mysql' })).toContain("type: 'datetime'")
   })
 })
+
+describe('SQL Server', () => {
+  it('Prisma : NoAction au lieu de Restrict, action de mise à jour explicite', () => {
+    const prisma = mldToPrisma(shop, { dialect: 'sqlserver' })
+    expect(prisma).toContain('@relation(fields: [idClient], references: [idClient], onDelete: NoAction, onUpdate: NoAction)')
+    expect(prisma).not.toContain('Restrict')
+    expect(mldToPrisma(shop, { dialect: 'postgresql' })).toContain('onDelete: Restrict)')
+  })
+
+  it("TypeORM : NO ACTION au lieu de RESTRICT, que SQL Server n'accepte pas", () => {
+    const orm = mldToTypeOrm(shop, { dialect: 'sqlserver' })
+    expect(orm).toContain("onDelete: 'NO ACTION'")
+    expect(orm).not.toContain('RESTRICT')
+  })
+})
