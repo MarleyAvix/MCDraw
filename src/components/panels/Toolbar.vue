@@ -4,7 +4,7 @@ import { useVueFlow } from '@vue-flow/core'
 import { useSpawnPoint } from '../../composables/useSpawnPoint'
 import {
   Square, Circle, Code2, RotateCcw, BookOpen, ChevronDown, Sun, Moon,
-  Undo2, Redo2, LayoutGrid, FileDown, FileUp, Image, FileJson, TextCursorInput, DatabaseZap,
+  Undo2, Redo2, LayoutGrid, FileDown, FileUp, Image, FileJson, TextCursorInput, DatabaseZap, Link2,
 } from 'lucide-vue-next'
 import { EXAMPLES, useSchemaStore } from '../../stores/schemaStore'
 import { useTheme } from '../../composables/useTheme'
@@ -120,6 +120,7 @@ const panel = 'absolute left-0 top-full z-40 mt-1 rounded-md border border-slate
         <button :class="item" @click="run(exportJson)"><FileJson :size="15" /> Exporter le projet (JSON)</button>
         <button :class="item" @click="run(() => fileInput?.click())"><FileUp :size="15" /> Importer un projet…</button>
         <button :class="item" @click="run(() => (store.showSqlImportModal = true))"><DatabaseZap :size="15" /> Importer du SQL (CREATE TABLE)…</button>
+        <button :class="item" @click="run(() => (store.showShareModal = true))"><Link2 :size="15" /> Partager par lien…</button>
         <hr class="my-1 border-slate-200" />
         <button :class="item" @click="run(() => exportImage('png'))"><Image :size="15" /> Image PNG</button>
         <button :class="item" @click="run(() => exportImage('svg'))"><Image :size="15" /> Image SVG</button>
