@@ -4,7 +4,7 @@ import { useVueFlow } from '@vue-flow/core'
 import { useSpawnPoint } from '../../composables/useSpawnPoint'
 import {
   Square, Circle, Code2, RotateCcw, BookOpen, ChevronDown, Sun, Moon,
-  Undo2, Redo2, LayoutGrid, FileDown, FileUp, Image, FileJson,
+  Undo2, Redo2, LayoutGrid, FileDown, FileUp, Image, FileJson, TextCursorInput,
 } from 'lucide-vue-next'
 import { EXAMPLES, useSchemaStore } from '../../stores/schemaStore'
 import { useTheme } from '../../composables/useTheme'
@@ -83,6 +83,9 @@ const panel = 'absolute left-0 top-full z-40 mt-1 rounded-md border border-slate
     <template v-if="store.view === 'mcd'">
     <button :class="btn" @click="addEntity"><Square :size="16" class="text-indigo-600" /> Entité</button>
     <button :class="btn" @click="addRelation"><Circle :size="16" class="text-amber-600" /> Association</button>
+    <button :class="[btn, store.showTextPanel ? 'border-indigo-600 text-indigo-600' : '']" :aria-pressed="store.showTextPanel" title="Saisir le MCD en texte" @click="store.showTextPanel = !store.showTextPanel">
+      <TextCursorInput :size="16" /> Texte
+    </button>
 
     <span class="mx-1 h-6 w-px bg-slate-200" />
 

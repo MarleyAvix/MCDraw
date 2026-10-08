@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useSpawnPoint } from './composables/useSpawnPoint'
 import { Database } from 'lucide-vue-next'
 import { useSchemaStore } from './stores/schemaStore'
@@ -8,6 +8,8 @@ import MldDiagram from './components/canvas/MldDiagram.vue'
 import DerivedDiagram from './components/canvas/DerivedDiagram.vue'
 import SearchBox from './components/panels/SearchBox.vue'
 import Toolbar from './components/panels/Toolbar.vue'
+import TextPanel from './components/panels/TextPanel.vue'
+import LintPanel from './components/panels/LintPanel.vue'
 import MldPanel from './components/panels/MldPanel.vue'
 import SqlExportModal from './components/panels/SqlExportModal.vue'
 import EditEntityModal from './components/modals/EditEntityModal.vue'
@@ -28,6 +30,8 @@ function initialMldOpen(): boolean {
   return window.innerWidth >= 1024
 }
 const mldOpen = ref(initialMldOpen())
+// Le panneau de saisie texte appartient à la vue MCD.
+const textOpen = computed(() => store.showTextPanel && store.view === 'mcd')
 function toggleMld() {
   mldOpen.value = !mldOpen.value
   try {
@@ -79,9 +83,14 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
       <Toolbar />
     </header>
 
-    <main class="grid min-h-0 flex-1" :class="mldOpen ? 'grid-cols-[1fr_340px]' : 'grid-cols-[1fr_40px]'">
+    <main
+      class="grid min-h-0 flex-1"
+      :class="[textOpen ? (mldOpen ? 'grid-cols-[340px_1fr_340px]' : 'grid-cols-[340px_1fr_40px]') : mldOpen ? 'grid-cols-[1fr_340px]' : 'grid-cols-[1fr_40px]']"
+    >
+      <TextPanel v-if="textOpen" />
       <div class="relative h-full min-w-0">
         <SearchBox />
+        <LintPanel v-if="store.view === 'mcd'" />
         <FlowCanvas v-if="store.view === 'mcd'" />
         <MldDiagram v-else-if="store.view === 'mld'" />
         <DerivedDiagram v-else :key="store.view" :kind="store.view" />

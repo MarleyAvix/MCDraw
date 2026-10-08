@@ -167,6 +167,7 @@ export const useSchemaStore = defineStore('schema', () => {
   const editingEntityId = ref<string | null>(null)
   const editingRelationId = ref<string | null>(null)
   const showSqlModal = ref(false)
+  const showTextPanel = ref(false)
   const selection = ref<string[]>([])
   const view = ref<ViewMode>('mcd')
   const highlightId = ref<string | null>(null)
@@ -585,7 +586,7 @@ export const useSchemaStore = defineStore('schema', () => {
 
   return {
     entities, relations, links,
-    editingEntityId, editingRelationId, showSqlModal, selection, view, mldRelayout, highlightId, flash, copyNodes, paste, duplicateNodes, sqlOptions, canUndo, canRedo,
+    editingEntityId, editingRelationId, showSqlModal, showTextPanel, selection, view, mldRelayout, highlightId, flash, copyNodes, paste, duplicateNodes, sqlOptions, canUndo, canRedo,
     schema, issues, weakEntityIds, mld, sql, nodes, edges,
     addEntity, addRelation, addRelationBetween, updateEntity, setParent, setInheritance, inheritanceRoot, childrenOfEntity, updateRelation, addAttribute, updateAttribute, removeAttribute, moveAttribute, removeNode, moveNode, moveNodes, rerouteLinks,
     addLink, updateLink, removeLink, reset, loadExample, importSchema, undo, redo,
