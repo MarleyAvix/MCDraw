@@ -20,7 +20,9 @@ export function useFileIO() {
   const store = useSchemaStore()
   const mcd = useVueFlow('mcdraw')
   const mld = useVueFlow('mld')
-  const active = () => (store.view === 'mld' ? mld : mcd)
+  const erd = useVueFlow('erd')
+  const uml = useVueFlow('uml')
+  const active = () => ({ mcd, mld, erd, uml })[store.view]
 
   const exportJson = () => downloadBlob(JSON.stringify(store.schema, null, 2), 'application/json', 'mcdraw.json')
 
@@ -49,7 +51,7 @@ export function useFileIO() {
     }
     try {
       const url = format === 'png' ? await toPng(el, opts) : await toSvg(el, opts)
-      download(url, `${store.view === 'mld' ? 'mld' : 'mcd'}.${format}`)
+      download(url, `${store.view}.${format}`)
     } catch {
       alert("L'export de l'image a échoué.")
     }

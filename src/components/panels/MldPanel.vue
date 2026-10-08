@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { AlertTriangle, Link2, Table2 } from 'lucide-vue-next'
+import { AlertTriangle, Link2, Table2, PanelRightClose, PanelRightOpen } from 'lucide-vue-next'
 import { useSchemaStore } from '../../stores/schemaStore'
 import { constraintTags, splitColumns } from '../../engine/meriseToMld'
+
+defineProps<{ open: boolean }>()
+defineEmits<{ toggle: [] }>()
 
 const store = useSchemaStore()
 const mld = computed(() => store.mld)
@@ -11,10 +14,21 @@ const tables = computed(() => mld.value.tables.map((t) => ({ t, cols: splitColum
 </script>
 
 <template>
-  <aside class="flex h-full flex-col overflow-y-auto border-l border-slate-200 bg-surface">
-    <div class="sticky top-0 z-10 border-b border-slate-200 bg-surface px-4 py-3">
-      <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">MLD calculé</h2>
-      <p class="text-xs text-slate-400"><u>clé primaire</u> · # clé étrangère</p>
+  <aside v-if="!open" class="flex h-full flex-col items-center gap-3 border-l border-slate-200 bg-surface py-3">
+    <button class="rounded p-1 text-slate-500 hover:bg-slate-100" title="Afficher le MLD" aria-label="Afficher le MLD" @click="$emit('toggle')">
+      <PanelRightOpen :size="18" />
+    </button>
+    <span class="text-xs font-semibold uppercase tracking-wide text-slate-400 [writing-mode:vertical-rl]">MLD calculé</span>
+  </aside>
+  <aside v-else class="flex h-full flex-col overflow-y-auto border-l border-slate-200 bg-surface">
+    <div class="sticky top-0 z-10 flex items-start gap-2 border-b border-slate-200 bg-surface px-4 py-3">
+      <div>
+        <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">MLD calculé</h2>
+        <p class="text-xs text-slate-400"><u>clé primaire</u> · # clé étrangère</p>
+      </div>
+      <button class="ml-auto rounded p-1 text-slate-500 hover:bg-slate-100" title="Replier le MLD" aria-label="Replier le MLD" @click="$emit('toggle')">
+        <PanelRightClose :size="18" />
+      </button>
     </div>
 
     <div v-if="mld.warnings.length" class="m-3 space-y-1 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">

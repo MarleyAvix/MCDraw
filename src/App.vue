@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { useSpawnPoint } from './composables/useSpawnPoint'
 import { Database } from 'lucide-vue-next'
 import { useSchemaStore } from './stores/schemaStore'
 import FlowCanvas from './components/canvas/FlowCanvas.vue'
 import MldDiagram from './components/canvas/MldDiagram.vue'
+import DerivedDiagram from './components/canvas/DerivedDiagram.vue'
 import SearchBox from './components/panels/SearchBox.vue'
 import Toolbar from './components/panels/Toolbar.vue'
 import MldPanel from './components/panels/MldPanel.vue'
@@ -14,6 +15,27 @@ import EditRelationModal from './components/modals/EditRelationModal.vue'
 
 const store = useSchemaStore()
 const spawnPoint = useSpawnPoint()
+
+// Panneau MLD repliable : le choix est mémorisé ; sans choix, replié sur écran étroit.
+const MLD_KEY = 'mcdraw.mldOpen'
+function initialMldOpen(): boolean {
+  try {
+    const v = localStorage.getItem(MLD_KEY)
+    if (v !== null) return v === '1'
+  } catch {
+    /* stockage indisponible */
+  }
+  return window.innerWidth >= 1024
+}
+const mldOpen = ref(initialMldOpen())
+function toggleMld() {
+  mldOpen.value = !mldOpen.value
+  try {
+    localStorage.setItem(MLD_KEY, mldOpen.value ? '1' : '0')
+  } catch {
+    /* stockage indisponible */
+  }
+}
 
 // Raccourcis (hors champs de saisie) : N entité, A association, Ctrl+Z/Y annuler/rétablir, Ctrl+A tout sélectionner, Ctrl+C/V/D copier/coller/dupliquer.
 function onKey(e: KeyboardEvent) {
@@ -57,13 +79,14 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
       <Toolbar />
     </header>
 
-    <main class="grid min-h-0 flex-1 grid-cols-[1fr_340px]">
+    <main class="grid min-h-0 flex-1" :class="mldOpen ? 'grid-cols-[1fr_340px]' : 'grid-cols-[1fr_40px]'">
       <div class="relative h-full min-w-0">
         <SearchBox />
         <FlowCanvas v-if="store.view === 'mcd'" />
-        <MldDiagram v-else />
+        <MldDiagram v-else-if="store.view === 'mld'" />
+        <DerivedDiagram v-else :key="store.view" :kind="store.view" />
       </div>
-      <MldPanel />
+      <MldPanel :open="mldOpen" @toggle="toggleMld" />
     </main>
 
     <EditEntityModal v-if="store.editingEntityId" :key="store.editingEntityId" />

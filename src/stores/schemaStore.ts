@@ -156,6 +156,9 @@ export const EXAMPLES: ExampleDef[] = [
   },
 ]
 
+/** Vues : MCD (édition) et vues dérivées MLD, ERD (pattes de corbeau), UML (diagramme de classes). */
+export type ViewMode = 'mcd' | 'mld' | 'erd' | 'uml'
+
 export const useSchemaStore = defineStore('schema', () => {
   const entities = ref<Entity[]>([])
   const relations = ref<Relation[]>([])
@@ -165,7 +168,7 @@ export const useSchemaStore = defineStore('schema', () => {
   const editingRelationId = ref<string | null>(null)
   const showSqlModal = ref(false)
   const selection = ref<string[]>([])
-  const view = ref<'mcd' | 'mld'>('mcd')
+  const view = ref<ViewMode>('mcd')
   const highlightId = ref<string | null>(null)
   let highlightTimer: ReturnType<typeof setTimeout> | undefined
   const mldRelayout = ref(0)
@@ -532,6 +535,8 @@ export const useSchemaStore = defineStore('schema', () => {
   const HISTORY_MAX = 100
   const past = ref<string[]>([])
   const future = ref<string[]>([])
+  const COALESCE_MS = 600
+  let lastChange = 0
   let present = JSON.stringify(schema.value)
   const canUndo = computed(() => past.value.length > 0)
   const canRedo = computed(() => future.value.length > 0)
@@ -546,8 +551,14 @@ export const useSchemaStore = defineStore('schema', () => {
         /* stockage indisponible : on ignore */
       }
       if (snap === present) return
-      past.value.push(present)
-      if (past.value.length > HISTORY_MAX) past.value.shift()
+      // Les modifications rapprochées (saisie au clavier…) ne forment qu'une seule étape.
+      const now = Date.now()
+      const grouped = past.value.length > 0 && now - lastChange < COALESCE_MS
+      lastChange = now
+      if (!grouped) {
+        past.value.push(present)
+        if (past.value.length > HISTORY_MAX) past.value.shift()
+      }
       future.value = []
       present = snap
     },
@@ -559,6 +570,7 @@ export const useSchemaStore = defineStore('schema', () => {
     if (prev === undefined) return
     future.value.push(present)
     present = prev
+    lastChange = 0
     load(JSON.parse(prev))
   }
 
@@ -567,6 +579,7 @@ export const useSchemaStore = defineStore('schema', () => {
     if (next === undefined) return
     past.value.push(present)
     present = next
+    lastChange = 0
     load(JSON.parse(next))
   }
 

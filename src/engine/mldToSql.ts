@@ -117,7 +117,7 @@ export function sqlDefault(raw: string, c: Pick<MldColumn, 'dataType'>, dialect:
   return `'${v.replace(/'/g, "''")}'`
 }
 
-const isAutoIncrement = (t: MldTable, c: MldColumn) =>
+export const isAutoIncrement = (t: MldTable, c: MldColumn) =>
   t.origin === 'entity' && t.primaryKey.length === 1 && c.isPrimaryKey && !c.isForeignKey && c.sqlType === 'INT'
 
 /** SQL Server n'admet qu'un seul NULL dans une contrainte UNIQUE : une colonne facultative passe par un index filtré. */

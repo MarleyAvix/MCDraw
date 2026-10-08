@@ -16,6 +16,8 @@ interface Hit {
 const store = useSchemaStore()
 const mcd = useVueFlow('mcdraw')
 const mld = useVueFlow('mld')
+const erd = useVueFlow('erd')
+const uml = useVueFlow('uml')
 
 const query = ref('')
 const open = ref(false)
@@ -63,7 +65,7 @@ const icons = { entity: Square, relation: Circle, table: Table2, attribute: Text
 
 /** Sélectionne l'élément, recadre le canvas dessus et le fait clignoter. */
 function pick(hit: Hit) {
-  const flow = store.view === 'mld' ? mld : mcd
+  const flow = { mcd, mld, erd, uml }[store.view]
   if (store.view === 'mcd') store.selection = [hit.nodeId]
   const node = flow.findNode(hit.nodeId)
   if (node) {

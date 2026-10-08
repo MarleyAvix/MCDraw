@@ -59,6 +59,27 @@ const precision = (c: MldColumn): string | null => {
   return m ? (m[2] ? `${m[1]}, ${m[2]}` : m[1]) : null
 }
 
+/** Noms C# des classes et propriétés : `props` donne, par table, la propriété de chaque colonne ; `used` les membres pris. */
+export function efNames(tables: MldTable[]) {
+  const className = new Map<string, string>(tables.map((t) => [t.name, pascal(t.name)]))
+  const props = new Map<string, Map<string, string>>() // table → colonne → propriété
+  const used = new Map<string, Set<string>>() // table → noms de membres pris
+
+  for (const t of tables) {
+    const taken = new Set<string>([className.get(t.name)!])
+    const m = new Map<string, string>()
+    for (const c of t.columns) {
+      let p = pascal(c.name)
+      while (taken.has(p)) p += '_'
+      taken.add(p)
+      m.set(c.name, p)
+    }
+    props.set(t.name, m)
+    used.set(t.name, taken)
+  }
+  return { className, props, used }
+}
+
 interface Nav {
   fk: MldTable['foreignKeys'][number]
   /** Propriété de navigation côté table qui porte la clé étrangère. */
@@ -78,22 +99,7 @@ export function mldToEfCore(mld: MldResult, options: Partial<EfOptions> = {}): s
   const tables = mld.tables
   if (!tables.length) return '// Aucune table : ajoutez des entités au MCD.\n'
 
-  const className = new Map<string, string>(tables.map((t) => [t.name, pascal(t.name)]))
-  const props = new Map<string, Map<string, string>>() // table → colonne → propriété
-  const used = new Map<string, Set<string>>() // table → noms de membres pris
-
-  for (const t of tables) {
-    const taken = new Set<string>([className.get(t.name)!])
-    const m = new Map<string, string>()
-    for (const c of t.columns) {
-      let p = pascal(c.name)
-      while (taken.has(p)) p += '_'
-      taken.add(p)
-      m.set(c.name, p)
-    }
-    props.set(t.name, m)
-    used.set(t.name, taken)
-  }
+  const { className, props, used } = efNames(tables)
 
   const unique = (table: string, base: string) => {
     const taken = used.get(table)!

@@ -49,6 +49,13 @@ function run(fn: () => void) {
   fn()
 }
 
+const VIEW_TITLES = {
+  mcd: 'Modèle conceptuel (édition)',
+  mld: 'Modèle logique : tables et clés étrangères',
+  erd: 'Diagramme entité-relation (notation pattes de corbeau)',
+  uml: 'Diagramme de classes UML',
+} as const
+
 const btn = 'inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-surface px-3 py-1.5 text-sm font-medium hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-surface'
 const item = 'flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-100'
 const panel = 'absolute left-0 top-full z-40 mt-1 rounded-md border border-slate-200 bg-surface py-1 shadow-lg'
@@ -58,13 +65,13 @@ const panel = 'absolute left-0 top-full z-40 mt-1 rounded-md border border-slate
   <div class="flex flex-wrap items-center gap-2">
     <div class="inline-flex overflow-hidden rounded-md border border-slate-300" role="tablist" aria-label="Vue">
       <button
-        v-for="v in (['mcd', 'mld'] as const)"
+        v-for="v in (['mcd', 'mld', 'erd', 'uml'] as const)"
         :key="v"
         role="tab"
         :aria-selected="store.view === v"
         class="px-3 py-1.5 text-sm font-semibold uppercase"
         :class="store.view === v ? 'bg-indigo-600 text-white' : 'bg-surface hover:bg-slate-100'"
-        :title="v === 'mcd' ? 'Modèle conceptuel (édition)' : 'Modèle logique : tables et clés étrangères'"
+        :title="VIEW_TITLES[v]"
         @click="store.view = v"
       >
         {{ v }}
