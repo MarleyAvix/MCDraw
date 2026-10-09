@@ -93,3 +93,44 @@ export function exitToward(node: GraphNode, q: Pt): Pt {
   const s = shapeOf(node)
   return exitPoint(s, s.center, q)
 }
+
+export interface LinkPath extends FloatingLine {
+  path: string
+  /** Point de saisie du tracé (milieu visible). */
+  handle: Pt
+}
+
+/**
+ * Tracé d'une patte. Sans `bend` : trait droit entre les formes. Avec `bend` : le tracé passe par le milieu
+ * des centres décalé de `bend` — en deux segments (droit) ou en courbe lissée (`curved`) ; la patte se raccorde
+ * alors au bord de chaque forme en direction de ce point. `curved` seul donne une courbe par défaut.
+ */
+export function linkPath(a: GraphNode, b: GraphNode, shift: number, curved: boolean, bend?: Pt): LinkPath {
+  const base = floatingLine(a, b, shift)
+  const ca = shapeOf(a).center
+  const cb = shapeOf(b).center
+  const off = bend ?? (curved ? { x: base.normal.x * 40, y: base.normal.y * 40 } : undefined)
+  const M = { x: (ca.x + cb.x) / 2 + base.normal.x * shift, y: (ca.y + cb.y) / 2 + base.normal.y * shift }
+  if (!off || (!off.x && !off.y)) {
+    const { source: s, target: t } = base
+    return { ...base, path: `M ${s.x},${s.y} L ${t.x},${t.y}`, handle: { x: (s.x + t.x) / 2, y: (s.y + t.y) / 2 } }
+  }
+  const V = { x: M.x + off.x, y: M.y + off.y }
+  // Point de contrôle quadratique : la courbe passe par V en son milieu.
+  const aim = curved ? { x: 2 * V.x - M.x, y: 2 * V.y - M.y } : V
+  const s = exitToward(a, aim)
+  const t = exitToward(b, aim)
+  const len = Math.hypot(t.x - aim.x, t.y - aim.y) || 1
+  const dir = { x: (t.x - aim.x) / len, y: (t.y - aim.y) / len }
+  let normal = { x: -dir.y, y: dir.x }
+  if (normal.y > 0 || (normal.y === 0 && normal.x < 0)) normal = { x: -normal.x, y: -normal.y }
+  if (!curved) return { source: s, target: t, dir, normal, path: `M ${s.x},${s.y} L ${V.x},${V.y} L ${t.x},${t.y}`, handle: V }
+  return {
+    source: s,
+    target: t,
+    dir,
+    normal,
+    path: `M ${s.x},${s.y} Q ${aim.x},${aim.y} ${t.x},${t.y}`,
+    handle: { x: 0.25 * s.x + 0.5 * aim.x + 0.25 * t.x, y: 0.25 * s.y + 0.5 * aim.y + 0.25 * t.y },
+  }
+}

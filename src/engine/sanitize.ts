@@ -100,6 +100,9 @@ export function sanitizeSchema(raw: unknown, makeId: () => string): MeriseSchema
       const entityHandle = oneOf(HANDLES, l.entityHandle)
       if (relationHandle) out.relationHandle = relationHandle
       if (entityHandle) out.entityHandle = entityHandle
+      if (l.curved === true) out.curved = true
+      const bend = l.bend
+      if (isObject(bend) && Number.isFinite(bend.x) && Number.isFinite(bend.y)) out.bend = { x: Number(bend.x), y: Number(bend.y) }
       return out
     })
 

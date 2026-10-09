@@ -289,7 +289,7 @@ export const useSchemaStore = defineStore('schema', () => {
       sourceHandle: l.relationHandle,
       targetHandle: l.entityHandle,
       type: 'link',
-      data: { linkId: l.id, cardinality: l.cardinality, role: l.role, identifying: !!l.identifying, index: twins.indexOf(l), count: twins.length },
+      data: { linkId: l.id, cardinality: l.cardinality, role: l.role, identifying: !!l.identifying, index: twins.indexOf(l), count: twins.length, curved: !!l.curved, bend: l.bend },
     }}),
   ])
 
@@ -511,7 +511,7 @@ export const useSchemaStore = defineStore('schema', () => {
     })
   }
 
-  function updateLink(id: string, patch: Partial<Pick<Link, 'cardinality' | 'role' | 'identifying' | 'onDelete' | 'onUpdate'>>) {
+  function updateLink(id: string, patch: Partial<Pick<Link, 'cardinality' | 'role' | 'identifying' | 'onDelete' | 'onUpdate' | 'curved' | 'bend'>>) {
     const l = links.value.find((x) => x.id === id)
     if (!l) return
     Object.assign(l, patch)
