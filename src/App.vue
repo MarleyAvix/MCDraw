@@ -7,7 +7,8 @@ import FlowCanvas from './components/canvas/FlowCanvas.vue'
 import MldDiagram from './components/canvas/MldDiagram.vue'
 import DerivedDiagram from './components/canvas/DerivedDiagram.vue'
 import SearchBox from './components/panels/SearchBox.vue'
-import Toolbar from './components/panels/Toolbar.vue'
+import HeaderToolbar from './components/panels/HeaderToolbar.vue'
+import CanvasToolbar from './components/panels/CanvasToolbar.vue'
 import TextPanel from './components/panels/TextPanel.vue'
 import LintPanel from './components/panels/LintPanel.vue'
 import MldPanel from './components/panels/MldPanel.vue'
@@ -15,6 +16,7 @@ import SqlExportModal from './components/panels/SqlExportModal.vue'
 import SqlImportModal from './components/panels/SqlImportModal.vue'
 import EditEntityModal from './components/modals/EditEntityModal.vue'
 import EditRelationModal from './components/modals/EditRelationModal.vue'
+import ShortcutsModal from './components/modals/ShortcutsModal.vue'
 
 const store = useSchemaStore()
 const spawnPoint = useSpawnPoint()
@@ -73,7 +75,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
 
 <template>
   <div class="flex h-full flex-col">
-    <header class="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-slate-200 bg-surface px-4 py-2.5">
+    <header class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-slate-200 bg-surface px-4 py-2.5">
       <div class="flex items-center gap-2">
         <Database :size="22" class="text-indigo-600" />
         <div class="leading-tight">
@@ -81,7 +83,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
           <p class="text-xs text-slate-500">Concevez vos MCD, exportez vos MLD en un clic.</p>
         </div>
       </div>
-      <Toolbar />
+      <HeaderToolbar />
     </header>
 
     <main
@@ -95,6 +97,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
         <FlowCanvas v-if="store.view === 'mcd'" />
         <MldDiagram v-else-if="store.view === 'mld'" />
         <DerivedDiagram v-else :key="store.view" :kind="store.view" />
+        <CanvasToolbar />
       </div>
       <MldPanel :open="mldOpen" @toggle="toggleMld" />
     </main>
@@ -103,5 +106,6 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
     <EditRelationModal v-if="store.editingRelationId" :key="store.editingRelationId" />
     <SqlExportModal v-if="store.showSqlModal" />
     <SqlImportModal v-if="store.showSqlImportModal" />
+    <ShortcutsModal v-if="store.showShortcutsModal" />
   </div>
 </template>

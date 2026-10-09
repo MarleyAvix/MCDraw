@@ -183,90 +183,120 @@ const fileName = computed(() => {
 })
 const download = () => downloadBlob(code.value, 'text/plain', fileName.value)
 
-const tabClass = (t: string) =>
-  `px-3 py-1.5 text-sm font-medium border-b-2 -mb-px ${tab.value === t ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`
+const sidebarClass = (t: string) =>
+  `text-left px-3 py-2 rounded-md text-sm font-medium transition-colors ${tab.value === t ? 'bg-indigo-100 text-indigo-700' : 'text-slate-600 hover:bg-slate-100'}`
 const field = 'rounded border border-slate-300 px-2 py-1'
 </script>
 
 <template>
-  <BaseModal title="Export du MLD" wide @close="store.showSqlModal = false">
-    <div class="mb-4 flex border-b border-slate-200">
-      <button :class="tabClass('sql')" @click="tab = 'sql'">SQL (DDL)</button>
-      <button :class="tabClass('efcore')" @click="tab = 'efcore'">C# — EF Core DbContext</button>
-      <button :class="tabClass('prisma')" @click="tab = 'prisma'">Prisma</button>
-      <button :class="tabClass('typeorm')" @click="tab = 'typeorm'">TypeORM</button>
-      <button :class="tabClass('seed')" @click="tab = 'seed'">Données fictives</button>
-      <button :class="tabClass('diagram')" @click="tab = 'diagram'">Mermaid / PlantUML</button>
-    </div>
+  <BaseModal title="Export du Modèle" wide @close="store.showSqlModal = false">
+    <div class="flex flex-col sm:flex-row gap-6">
+      
+      <!-- Navigation latérale (Sidebar) -->
+      <nav class="w-full sm:w-52 shrink-0 flex flex-col gap-1">
+        <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1 px-3">Base de données</h3>
+        <button :class="sidebarClass('sql')" @click="tab = 'sql'">SQL (DDL)</button>
+        <button :class="sidebarClass('seed')" @click="tab = 'seed'">Données fictives (Seed)</button>
+        
+        <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mt-3 mb-1 px-3">ORM & Code</h3>
+        <button :class="sidebarClass('prisma')" @click="tab = 'prisma'">Prisma</button>
+        <button :class="sidebarClass('typeorm')" @click="tab = 'typeorm'">TypeORM</button>
+        <button :class="sidebarClass('efcore')" @click="tab = 'efcore'">C# (EF Core)</button>
+        
+        <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mt-3 mb-1 px-3">Documentation</h3>
+        <button :class="sidebarClass('diagram')" @click="tab = 'diagram'">Mermaid / PlantUML</button>
+      </nav>
 
-    <div v-if="tab !== 'diagram' && tab !== 'efcore' && (tab !== 'seed' || seed.format !== 'csharp')" class="mb-3 flex flex-wrap items-center gap-4 text-sm">
-      <label v-if="tab === 'seed'" class="flex items-center gap-2">
-        Format
-        <select v-model="seed.format" :class="field">
-          <option v-for="(f, k) in SEED_FORMATS" :key="k" :value="k">{{ f.label }}</option>
-        </select>
-      </label>
-      <label v-if="tab === 'prisma'" class="flex items-center gap-2">
-        Version
-        <select v-model="prismaVersion" :class="field">
-          <option v-for="(label, v) in PRISMA_VERSIONS" :key="v" :value="v">{{ label }}</option>
-        </select>
-      </label>
-      <label class="flex items-center gap-2">
-        Dialecte
-        <select v-model="store.sqlOptions.dialect" :class="field">
-          <option v-for="d in SQL_DIALECTS" :key="d" :value="d">{{ DIALECT_LABELS[d] }}</option>
-        </select>
-      </label>
-      <label class="flex items-center gap-2">
-        <input v-model="store.sqlOptions.autoIncrement" type="checkbox" /> Clés primaires auto-incrémentées
-      </label>
-    </div>
-    <div v-else-if="tab === 'diagram'" class="mb-3 flex flex-wrap items-center gap-4 text-sm">
-      <label class="flex items-center gap-2">
-        Langage
-        <select v-model="diagram.language" :class="field">
-          <option v-for="(label, l) in LANGUAGE_LABELS" :key="l" :value="l">{{ label }}</option>
-        </select>
-      </label>
-      <label class="flex items-center gap-2">
-        Notation
-        <select v-model="diagram.notation" :class="field">
-          <option v-for="(label, n) in NOTATION_LABELS" :key="n" :value="n">{{ label }}</option>
-        </select>
-      </label>
-      <label class="flex items-center gap-2">
-        <input v-model="diagram.fence" type="checkbox" /> Bloc de code Markdown (README, GitHub, wiki)
-      </label>
-    </div>
-    <div v-else class="mb-3 flex flex-wrap items-center gap-4 text-sm">
-      <label v-if="tab === 'seed'" class="flex items-center gap-2">
-        Format
-        <select v-model="seed.format" :class="field">
-          <option v-for="(f, k) in SEED_FORMATS" :key="k" :value="k">{{ f.label }}</option>
-        </select>
-      </label>
-      <label class="flex items-center gap-2">Namespace <input v-model="ef.namespace" :class="[field, 'w-44']" /></label>
-      <label class="flex items-center gap-2">Contexte <input v-model="ef.contextName" :class="[field, 'w-40']" /></label>
-    </div>
+      <!-- Contenu (Options + Code) -->
+      <div class="flex-1 min-w-0 flex flex-col">
+        <!-- Conteneur d'options -->
+        <div class="mb-4 flex flex-wrap items-center gap-x-6 gap-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+      
+      <!-- Options SQL -->
+      <template v-if="tab === 'sql' || tab === 'typeorm' || tab === 'seed'">
+        <label v-if="tab === 'seed'" class="flex items-center gap-2 font-medium">
+          Format
+          <select v-model="seed.format" :class="field">
+            <option v-for="(f, k) in SEED_FORMATS" :key="k" :value="k">{{ f.label }}</option>
+          </select>
+        </label>
+        
+        <template v-if="tab !== 'seed' || seed.format === 'sql'">
+          <label class="flex items-center gap-2 font-medium">
+            Dialecte
+            <select v-model="store.sqlOptions.dialect" :class="field">
+              <option v-for="d in SQL_DIALECTS" :key="d" :value="d">{{ DIALECT_LABELS[d] }}</option>
+            </select>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer select-none">
+            <input v-model="store.sqlOptions.autoIncrement" type="checkbox" class="rounded border-slate-300 text-indigo-600" /> Clés primaires auto-incrémentées
+          </label>
+        </template>
+      </template>
 
-    <div v-if="tab === 'seed'" class="mb-3 flex flex-wrap items-center gap-4 text-sm">
-      <label class="flex items-center gap-2">
-        Lignes par table <input v-model.number="seed.rows" type="number" min="1" :max="SEED_MAX_ROWS" :class="[field, 'w-20']" />
-      </label>
-      <div class="flex items-center gap-1" role="group" aria-label="Nombre de lignes">
-        <button
-          v-for="n in SEED_ROW_PRESETS"
-          :key="n"
-          class="rounded px-2 py-1 text-xs hover:bg-slate-100"
-          :class="seedRows === n ? 'bg-slate-200 font-semibold' : ''"
-          @click="seed.rows = n"
-        >{{ n }}</button>
+      <!-- Options Prisma -->
+      <template v-if="tab === 'prisma'">
+        <label class="flex items-center gap-2 font-medium">
+          Version Prisma
+          <select v-model="prismaVersion" :class="field">
+            <option v-for="(label, v) in PRISMA_VERSIONS" :key="v" :value="v">{{ label }}</option>
+          </select>
+        </label>
+        <label class="flex items-center gap-2 font-medium">
+          Dialecte
+          <select v-model="store.sqlOptions.dialect" :class="field">
+            <option v-for="d in SQL_DIALECTS" :key="d" :value="d">{{ DIALECT_LABELS[d] }}</option>
+          </select>
+        </label>
+        <label class="flex items-center gap-2 cursor-pointer select-none">
+          <input v-model="store.sqlOptions.autoIncrement" type="checkbox" class="rounded border-slate-300 text-indigo-600" /> Clés primaires auto-incrémentées
+        </label>
+      </template>
+
+      <!-- Options EF Core & C# Seed -->
+      <template v-if="tab === 'efcore' || (tab === 'seed' && seed.format === 'csharp')">
+        <label class="flex items-center gap-2 font-medium">Namespace <input v-model="ef.namespace" :class="[field, 'w-44']" /></label>
+        <label class="flex items-center gap-2 font-medium">Contexte <input v-model="ef.contextName" :class="[field, 'w-40']" /></label>
+      </template>
+
+      <!-- Options Diagrammes -->
+      <template v-if="tab === 'diagram'">
+        <label class="flex items-center gap-2 font-medium">
+          Langage
+          <select v-model="diagram.language" :class="field">
+            <option v-for="(label, l) in LANGUAGE_LABELS" :key="l" :value="l">{{ label }}</option>
+          </select>
+        </label>
+        <label class="flex items-center gap-2 font-medium">
+          Notation
+          <select v-model="diagram.notation" :class="field">
+            <option v-for="(label, n) in NOTATION_LABELS" :key="n" :value="n">{{ label }}</option>
+          </select>
+        </label>
+        <label class="flex items-center gap-2 cursor-pointer select-none">
+          <input v-model="diagram.fence" type="checkbox" class="rounded border-slate-300 text-indigo-600" /> Bloc de code Markdown (README, GitHub)
+        </label>
+      </template>
+
+      <!-- Options Spécifiques Seed (Lignes, Graine) -->
+      <div v-if="tab === 'seed'" class="flex flex-wrap items-center gap-x-6 gap-y-3 w-full pt-3 mt-1 border-t border-slate-200">
+        <label class="flex items-center gap-2 font-medium">
+          Lignes par table <input v-model.number="seed.rows" type="number" min="1" :max="SEED_MAX_ROWS" :class="[field, 'w-20']" />
+        </label>
+        <div class="flex items-center gap-1" role="group" aria-label="Nombre de lignes">
+          <button
+            v-for="n in SEED_ROW_PRESETS"
+            :key="n"
+            class="rounded px-2 py-1 text-xs hover:bg-slate-200 transition-colors"
+            :class="seedRows === n ? 'bg-indigo-100 text-indigo-700 font-bold' : 'text-slate-600'"
+            @click="seed.rows = n"
+          >{{ n }}</button>
+        </div>
+        <label class="flex items-center gap-2 font-medium">
+          Graine <input v-model.number="seed.seed" type="number" :class="[field, 'w-24']" />
+          <button class="inline-flex items-center gap-1 rounded bg-white border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100 transition-colors" title="Tirer d'autres données" @click="reroll"><Dices :size="14" /> Autres données</button>
+        </label>
       </div>
-      <label class="flex items-center gap-2">
-        Graine <input v-model.number="seed.seed" type="number" :class="[field, 'w-24']" />
-        <button class="inline-flex items-center gap-1 rounded px-2 py-1 hover:bg-slate-100" title="Tirer d'autres données" @click="reroll"><Dices :size="14" /> Autres données</button>
-      </label>
     </div>
     <p v-if="tab === 'seed' && reducedTables.length" class="mb-3 text-xs text-amber-600">
       Moins de {{ seedRows }} lignes pour : {{ reducedTables.join(', ') }} — limité par une relation 1-1 ou par le nombre de combinaisons possibles.
@@ -302,6 +332,8 @@ const field = 'rounded border border-slate-300 px-2 py-1'
     <p v-if="preview.truncated" class="mt-2 text-xs text-slate-500">
       Aperçu des {{ PREVIEW_LINES }} premières lignes sur {{ preview.total.toLocaleString('fr-FR') }} : « Copier » et « Télécharger » donnent le script complet.
     </p>
+    </div>
+    </div>
     <template #footer>
       <button class="inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-sm hover:bg-slate-100 disabled:cursor-wait disabled:opacity-40" :disabled="actionsDisabled" @click="download">
         <Download :size="14" /> Télécharger {{ fileName }}
