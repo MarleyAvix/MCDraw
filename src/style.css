@@ -105,3 +105,7 @@ input[type='text'], input:not([type]) { cursor: text; }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-slate-400);
 }
+
+/* Fond d'entité / d'association personnalisé : le texte s'adapte pour rester lisible. */
+:root.themed-entity .entity-bg, :root.themed-entity .entity-bg *:not(input):not(select) { color: var(--entity-fg); }
+:root.themed-relation .relation-bg, :root.themed-relation .relation-bg *:not(input):not(select) { color: var(--relation-fg); }

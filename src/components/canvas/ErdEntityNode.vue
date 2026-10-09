@@ -28,7 +28,7 @@ const startRename = () => renamable.value && start()
     <Handle type="source" :position="Position.Top" :connectable="false" class="!opacity-0" />
     <div
       class="flex items-center justify-center gap-3 border-b-2 border-slate-700 px-3 py-1.5 font-bold uppercase tracking-wide"
-      :class="isBox ? 'rounded-t-[10px] bg-(--relation-bg,var(--color-amber-100))' : 'rounded-t-[4px] bg-(--entity-bg,var(--color-indigo-100))'"
+      :class="isBox ? 'rounded-t-[10px] bg-(--relation-bg,var(--color-amber-100)) relation-bg' : 'rounded-t-[4px] bg-(--entity-bg,var(--color-indigo-100)) entity-bg'"
     >
       <input
         v-if="editing"

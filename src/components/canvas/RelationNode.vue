@@ -32,7 +32,7 @@ function commit() {
 <template>
   <div
     :class="[hit ? 'search-hit' : '', data.attributes.length ? 'rounded-2xl px-4 py-2' : 'rounded-[50%] px-6 py-3']"
-    class="group/node relative flex min-h-16 min-w-32 flex-col items-center justify-center border-2 border-slate-700 bg-(--relation-bg,var(--color-amber-50)) text-center text-sm shadow-sm">
+    class="group/node relative flex min-h-16 min-w-32 flex-col items-center justify-center border-2 border-slate-700 bg-(--relation-bg,var(--color-amber-50)) relation-bg text-center text-sm shadow-sm">
     <span
       v-if="issues.length"
       class="absolute right-1 top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-white shadow"

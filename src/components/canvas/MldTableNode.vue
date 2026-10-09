@@ -37,7 +37,7 @@ function commit() {
   <div :class="{ 'search-hit': hit }" class="min-w-48 rounded-md border-2 border-slate-700 bg-surface text-sm shadow-sm">
     <div
       class="flex items-center justify-between gap-3 rounded-t-[4px] border-b-2 border-slate-700 px-3 py-1.5 font-bold"
-      :class="data.origin === 'entity' ? 'bg-(--entity-bg,var(--color-indigo-100))' : 'bg-(--relation-bg,var(--color-amber-100))'"
+      :class="data.origin === 'entity' ? 'bg-(--entity-bg,var(--color-indigo-100)) entity-bg' : 'bg-(--relation-bg,var(--color-amber-100)) relation-bg'"
     >
       <input
         v-if="editing"
