@@ -14,6 +14,8 @@ import LintPanel from './components/panels/LintPanel.vue'
 import MldPanel from './components/panels/MldPanel.vue'
 import SqlExportModal from './components/panels/SqlExportModal.vue'
 import SqlImportModal from './components/panels/SqlImportModal.vue'
+import ShareModal from './components/panels/ShareModal.vue'
+import { useShareLink } from './composables/useShareLink'
 import EditEntityModal from './components/modals/EditEntityModal.vue'
 import EditRelationModal from './components/modals/EditRelationModal.vue'
 import ShortcutsModal from './components/modals/ShortcutsModal.vue'
@@ -69,6 +71,7 @@ function onKey(e: KeyboardEvent) {
   else return
   e.preventDefault()
 }
+useShareLink()
 onMounted(() => window.addEventListener('keydown', onKey))
 onUnmounted(() => window.removeEventListener('keydown', onKey))
 </script>
@@ -107,5 +110,6 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
     <SqlExportModal v-if="store.showSqlModal" />
     <SqlImportModal v-if="store.showSqlImportModal" />
     <ShortcutsModal v-if="store.showShortcutsModal" />
+    <ShareModal v-if="store.showShareModal" />
   </div>
 </template>
