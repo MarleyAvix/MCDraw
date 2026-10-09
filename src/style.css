@@ -63,7 +63,7 @@ html, body, #app { height: 100%; margin: 0; }
 body { font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; background: var(--surface); color: var(--fg); }
 input, select { background: var(--surface); color: var(--fg); }
 
-.vue-flow__edge-path { stroke: var(--edge); stroke-width: 1.5; }
+.vue-flow__edge .vue-flow__edge-path { stroke: var(--edge); stroke-width: 1.5; }
 .vue-flow__edge.selected .vue-flow__edge-path { stroke: var(--accent); }
 .vue-flow__edge-textbg { fill: var(--surface); }
 .vue-flow__edge-text { fill: var(--fg); }
@@ -109,3 +109,5 @@ input[type='text'], input:not([type]) { cursor: text; }
 /* Fond d'entité / d'association personnalisé : le texte s'adapte pour rester lisible. */
 :root.themed-entity .entity-bg, :root.themed-entity .entity-bg *:not(input):not(select) { color: var(--entity-fg); }
 :root.themed-relation .relation-bg, :root.themed-relation .relation-bg *:not(input):not(select) { color: var(--relation-fg); }
+/* Symboles de notation (pattes de corbeau, flèches, cardinalités) : suivent la couleur des liens. */
+.edge-mark { color: var(--edge); }

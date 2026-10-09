@@ -24,7 +24,7 @@ const arrow = computed(() => {
 
 <template>
   <BaseEdge :id="id" :path="path" :style="{ strokeWidth: 2, ...style }" />
-  <polygon points="0,0 -16,-9 -16,9" :transform="arrow" fill="var(--color-surface, white)" stroke="currentColor" stroke-width="2" class="pointer-events-none text-slate-700" />
+  <polygon points="0,0 -16,-9 -16,9" :transform="arrow" fill="var(--color-surface, white)" stroke="currentColor" stroke-width="2" class="edge-mark pointer-events-none text-slate-700" />
   <EdgeLabelRenderer>
     <div
       class="nodrag nopan pointer-events-none absolute rounded border border-slate-300 bg-surface px-1.5 py-0.5 text-xs"
