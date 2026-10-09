@@ -70,6 +70,10 @@ export interface Link {
   onUpdate?: RefAction
   relationHandle?: string
   entityHandle?: string
+  /** Tracé courbe (sinon droit). */
+  curved?: boolean
+  /** Décalage du point de passage par rapport au milieu des deux centres (tracé déplacé à la main). */
+  bend?: { x: number; y: number }
 }
 
 export interface MeriseSchema {
