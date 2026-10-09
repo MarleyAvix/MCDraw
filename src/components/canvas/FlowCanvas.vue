@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { ConnectionMode, VueFlow, useVueFlow, type Connection } from '@vue-flow/core'
+import { ConnectionMode, VueFlow, useVueFlow, type Connection, type NodeMouseEvent } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
 import { useSchemaStore } from '../../stores/schemaStore'
@@ -69,7 +69,8 @@ function onPaneContextMenu(event: MouseEvent) {
   contextMenu.value = { px: event.clientX - rect.left, py: event.clientY - rect.top, flowX: p.x, flowY: p.y }
 }
 
-function onNodeContextMenu({ event, node }: { event: MouseEvent; node: any }) {
+function onNodeContextMenu({ event: e, node }: NodeMouseEvent) {
+  const event = e as MouseEvent
   event.preventDefault()
   proposal.value = null
   const rect = root.value!.getBoundingClientRect()
