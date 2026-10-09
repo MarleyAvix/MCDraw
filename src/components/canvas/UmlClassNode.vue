@@ -27,7 +27,7 @@ const startRename = () => renamable.value && start()
     <Handle type="source" :position="Position.Top" :connectable="false" class="!opacity-0" />
     <div
       class="flex items-center justify-center gap-3 border-b-2 border-slate-700 px-3 py-1.5 font-bold"
-      :class="data.kind === 'box' ? 'bg-amber-100' : 'bg-indigo-100'"
+      :class="data.kind === 'box' ? 'bg-(--relation-bg,var(--color-amber-100))' : 'bg-(--entity-bg,var(--color-indigo-100))'"
     >
       <input
         v-if="editing"

@@ -50,7 +50,7 @@ function commit() {
     <Handle id="l" type="source" :position="Position.Left" />
 
     <div
-      class="rounded-t-[4px] border-b-2 border-slate-700 bg-indigo-100 px-3 py-1.5 text-center font-bold uppercase tracking-wide"
+      class="rounded-t-[4px] border-b-2 border-slate-700 bg-(--entity-bg,var(--color-indigo-100)) px-3 py-1.5 text-center font-bold uppercase tracking-wide"
       title="Double-clic pour renommer"
       @dblclick.stop="startRename"
     >
