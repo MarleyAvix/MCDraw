@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import {
   BookOpen, ChevronDown, Sun, Moon,
-  FileDown, FileUp, Image, FileJson, DatabaseZap, Code2, HelpCircle, Link2
+  FileDown, FileUp, Image, FileJson, FileText, Palette, DatabaseZap, Code2, HelpCircle, Link2
 } from 'lucide-vue-next'
 import { EXAMPLES, useSchemaStore } from '../../stores/schemaStore'
 import { useTheme } from '../../composables/useTheme'
@@ -10,7 +10,7 @@ import { useFileIO } from '../../composables/useFileIO'
 
 const store = useSchemaStore()
 const { isDark, toggle: toggleTheme } = useTheme()
-const { exportJson, importJson, exportImage } = useFileIO()
+const { exportJson, importJson, exportImage, exportPdf } = useFileIO()
 
 const EXAMPLE_GROUPS = [
   { category: 'modele', title: 'Modèles de départ' },
@@ -94,6 +94,7 @@ const panel = 'absolute left-0 top-full z-40 mt-1 rounded-md border border-slate
           <hr class="my-1 border-slate-200" />
           <button :class="item" @click="run(() => exportImage('png'))"><Image :size="15" /> Image PNG</button>
           <button :class="item" @click="run(() => exportImage('svg'))"><Image :size="15" /> Image SVG</button>
+          <button :class="item" @click="run(exportPdf)"><FileText :size="15" /> PDF / Imprimer…</button>
         </div>
         <input ref="fileInput" type="file" accept="application/json,.json" class="hidden" @change="onFile" />
       </div>
@@ -115,6 +116,7 @@ const panel = 'absolute left-0 top-full z-40 mt-1 rounded-md border border-slate
 
     <!-- Préférences / App -->
     <div class="flex items-center gap-2">
+      <button :class="btn" title="Couleurs du diagramme" @click="store.showThemeModal = true"><Palette :size="16" /></button>
       <button :class="btn" :title="isDark ? 'Thème clair' : 'Thème sombre'" @click="toggleTheme">
         <component :is="isDark ? Sun : Moon" :size="16" />
       </button>

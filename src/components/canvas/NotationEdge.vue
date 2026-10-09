@@ -116,7 +116,7 @@ const arrow = computed(() => {
         v-for="(e, i) in geo.ends"
         :key="i"
         :transform="`translate(${e.pt.x} ${e.pt.y}) rotate(${angle(e.dir)})`"
-        class="pointer-events-none text-slate-700"
+        class="edge-mark pointer-events-none text-slate-700"
         stroke="currentColor"
         stroke-width="2"
         fill="none"
@@ -137,7 +137,7 @@ const arrow = computed(() => {
       fill="var(--color-surface, white)"
       stroke="currentColor"
       stroke-width="2"
-      class="pointer-events-none text-slate-700"
+      class="edge-mark pointer-events-none text-slate-700"
     />
 
     <EdgeLabelRenderer>

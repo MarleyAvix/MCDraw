@@ -53,10 +53,11 @@ export function useFileIO() {
     }
   }
 
-  async function exportImage(format: 'png' | 'svg') {
+  /** Capture le diagramme entier de la vue active ; `null` si vide ou en cas d'échec (l'utilisateur est alors prévenu). */
+  async function captureImage(format: 'png' | 'svg'): Promise<{ url: string; width: number; height: number } | null> {
     const { vueFlowRef, getNodes, viewport, setViewport } = active()
     const el = vueFlowRef.value
-    if (!el || !getNodes.value.length) return
+    if (!el || !getNodes.value.length) return null
 
     // On exporte le diagramme entier à l'échelle 1:1 (et non la fenêtre visible, réduite par fitView) :
     // on agrandit temporairement le conteneur aux dimensions du contenu, puis on restaure.
@@ -87,9 +88,10 @@ export function useFileIO() {
         },
       }
       const url = format === 'png' ? await toPng(el, opts) : await toSvg(el, opts)
-      download(url, `${store.view}.${format}`)
+      return { url, width, height }
     } catch {
       alert("L'export de l'image a échoué.")
+      return null
     } finally {
       restoreSvg()
       el.classList.remove('exporting')
@@ -99,5 +101,25 @@ export function useFileIO() {
     }
   }
 
-  return { exportJson, importJson, exportImage }
+  async function exportImage(format: 'png' | 'svg') {
+    const img = await captureImage(format)
+    if (img) download(img.url, `${store.view}.${format}`)
+  }
+
+  /** Ouvre le diagramme dans une page d'impression (une seule page, orientation adaptée) : « Enregistrer au format PDF ». */
+  async function exportPdf() {
+    const win = window.open('', '_blank')
+    if (!win) return alert("Autorisez les fenêtres pop-up pour exporter en PDF.")
+    const img = await captureImage('png')
+    if (!img) return win.close()
+    const orientation = img.width >= img.height ? 'landscape' : 'portrait'
+    win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${store.view}</title>
+<style>@page{size:A4 ${orientation};margin:10mm}html,body{margin:0;height:100%}
+body{display:flex;align-items:center;justify-content:center}
+img{max-width:100%;max-height:100vh;object-fit:contain}</style></head>
+<body><img src="${img.url}" onload="setTimeout(function(){print()},100)"></body></html>`)
+    win.document.close()
+  }
+
+  return { exportJson, importJson, exportImage, exportPdf }
 }

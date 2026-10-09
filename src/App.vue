@@ -15,6 +15,7 @@ import MldPanel from './components/panels/MldPanel.vue'
 import SqlExportModal from './components/panels/SqlExportModal.vue'
 import SqlImportModal from './components/panels/SqlImportModal.vue'
 import ShareModal from './components/panels/ShareModal.vue'
+import ThemeModal from './components/panels/ThemeModal.vue'
 import { useShareLink } from './composables/useShareLink'
 import EditEntityModal from './components/modals/EditEntityModal.vue'
 import EditRelationModal from './components/modals/EditRelationModal.vue'
@@ -111,5 +112,6 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
     <SqlImportModal v-if="store.showSqlImportModal" />
     <ShortcutsModal v-if="store.showShortcutsModal" />
     <ShareModal v-if="store.showShareModal" />
+    <ThemeModal v-if="store.showThemeModal" />
   </div>
 </template>
