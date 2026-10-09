@@ -51,17 +51,40 @@ onEdgesChange((changes) => {
 // Pas de boucle sur une association ; une entité peut en revanche se relier à elle-même (réflexive).
 const isValid = (c: Connection) => c.source !== c.target || store.entities.some((e) => e.id === c.source)
 
-// Relâcher une connexion dans le vide propose de créer l'élément manquant à cet endroit.
+// Relâchement et propositions
 type Proposal = { sourceId: string; handle?: string; kind: 'entity' | 'relation'; px: number; py: number; x: number; y: number }
 const root = ref<HTMLElement>()
 const proposal = ref<Proposal | null>(null)
 let pending: { nodeId: string; handleId?: string } | null = null
 let connected = false
 
+// Menu contextuel
+const contextMenu = ref<{ px: number; py: number; flowX?: number; flowY?: number; node?: any } | null>(null)
+
+function onPaneContextMenu(event: MouseEvent) {
+  event.preventDefault()
+  proposal.value = null
+  const rect = root.value!.getBoundingClientRect()
+  const p = screenToFlowCoordinate({ x: event.clientX, y: event.clientY })
+  contextMenu.value = { px: event.clientX - rect.left, py: event.clientY - rect.top, flowX: p.x, flowY: p.y }
+}
+
+function onNodeContextMenu({ event, node }: { event: MouseEvent; node: any }) {
+  event.preventDefault()
+  proposal.value = null
+  const rect = root.value!.getBoundingClientRect()
+  contextMenu.value = { px: event.clientX - rect.left, py: event.clientY - rect.top, node }
+}
+
+function closeMenus() {
+  proposal.value = null
+  contextMenu.value = null
+}
+
 onConnectStart(({ nodeId, handleId }) => {
   pending = nodeId ? { nodeId, handleId: handleId ?? undefined } : null
   connected = false
-  proposal.value = null
+  closeMenus()
 })
 
 onConnectEnd((event) => {
@@ -70,7 +93,6 @@ onConnectEnd((event) => {
   if (!start || !event) return
   const e = 'changedTouches' in event ? event.changedTouches[0] : event
   const target = event.target as HTMLElement | null
-  // Seul un relâchement sur le fond du plan déclenche la proposition.
   if (!target?.closest('.vue-flow__pane')) return
   setTimeout(() => {
     if (connected) return
@@ -82,10 +104,9 @@ onConnectEnd((event) => {
   }, 0)
 })
 
-/** Crée l'élément proposé et le relie à celui d'où est partie la connexion. */
 function createFromProposal(what: 'entity' | 'relation') {
   const pr = proposal.value
-  proposal.value = null
+  closeMenus()
   if (!pr) return
   if (pr.kind === 'entity' && what === 'relation') {
     const r = store.addRelation(pr.x - 65, pr.y - 32)
@@ -101,7 +122,27 @@ function createFromProposal(what: 'entity' | 'relation') {
   }
 }
 
-// Une patte relie toujours une association à une entité.
+function handleContextAction(action: string) {
+  const ctx = contextMenu.value
+  if (!ctx) return
+  
+  if (action === 'add-entity' && ctx.flowX !== undefined && ctx.flowY !== undefined) {
+    store.addEntity(ctx.flowX - 90, ctx.flowY - 50)
+  } else if (action === 'add-relation' && ctx.flowX !== undefined && ctx.flowY !== undefined) {
+    store.addRelation(ctx.flowX - 65, ctx.flowY - 32)
+  } else if (ctx.node) {
+    if (action === 'edit') {
+      if (ctx.node.type === 'entity') store.editingEntityId = ctx.node.id
+      else store.editingRelationId = ctx.node.id
+    } else if (action === 'duplicate') {
+      store.duplicateNodes([ctx.node.id])
+    } else if (action === 'delete') {
+      store.removeNode(ctx.node.id)
+    }
+  }
+  closeMenus()
+}
+
 onConnect((c: Connection) => {
   connected = true
   const kind = (id: string) =>
@@ -112,14 +153,22 @@ onConnect((c: Connection) => {
   } else if (ks === 'entity' && kt === 'relation') {
     store.addLink(c.target, c.source, { relation: c.targetHandle ?? undefined, entity: c.sourceHandle ?? undefined })
   } else if (ks === 'entity' && kt === 'entity') {
-    // Entité → entité : une association est créée automatiquement entre les deux.
     store.addRelationBetween(c.source, c.target, { source: c.sourceHandle ?? undefined, target: c.targetHandle ?? undefined })
   }
 })
 </script>
 
 <template>
-  <div ref="root" class="relative h-full w-full" @keydown.esc="proposal = null">
+  <div ref="root" class="relative h-full w-full" @keydown.esc="closeMenus" @click="closeMenus" @contextmenu.prevent>
+  
+  <!-- Empty State -->
+  <div v-if="store.entities.length === 0 && store.relations.length === 0" class="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center">
+    <div class="rounded-2xl border-2 border-dashed border-slate-300 bg-surface/80 p-10 text-center shadow-sm backdrop-blur-sm transition-opacity">
+      <p class="text-2xl font-extrabold tracking-tight text-slate-700">Votre canevas est vide</p>
+      <p class="mt-3 text-base text-slate-500">Appuyez sur <kbd class="mx-1 rounded-md border border-slate-300 bg-slate-100 px-1.5 py-0.5 font-mono text-sm font-semibold text-slate-700">N</kbd> ou faites un <b>clic-droit</b> pour créer une entité.</p>
+    </div>
+  </div>
+
   <VueFlow
     id="mcdraw"
     :nodes="store.nodes"
@@ -133,8 +182,12 @@ onConnect((c: Connection) => {
     :multi-selection-key-code="['Control', 'Meta']"
     fit-view-on-init
     class="bg-slate-50"
-    @pane-click="proposal = null"
-    @move-start="proposal = null"
+    @pane-click="closeMenus"
+    @move-start="closeMenus"
+    @node-click="closeMenus"
+    @edge-click="closeMenus"
+    @pane-context-menu="onPaneContextMenu"
+    @node-context-menu="onNodeContextMenu"
   >
     <template #node-entity="props"><EntityNode :data="props.data" /></template>
     <template #node-relation="props"><RelationNode :data="props.data" /></template>
@@ -143,15 +196,33 @@ onConnect((c: Connection) => {
     <Background :gap="20" :size="2" :pattern-color="isDark ? '#484f58' : '#afb8c1'" />
     <Controls position="bottom-left" />
   </VueFlow>
+  
   <div
     v-if="proposal"
     class="absolute z-50 w-52 rounded-md border border-slate-200 bg-surface py-1 text-sm shadow-lg"
     :style="{ left: `${proposal.px}px`, top: `${proposal.py}px` }"
   >
     <p class="px-3 pb-1 pt-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Créer ici</p>
-    <button v-if="proposal.kind === 'entity'" class="block w-full px-3 py-2 text-left hover:bg-slate-100" @click="createFromProposal('relation')">Une association</button>
-    <button class="block w-full px-3 py-2 text-left hover:bg-slate-100" @click="createFromProposal('entity')">Une entité</button>
-    <button class="block w-full px-3 py-2 text-left text-slate-500 hover:bg-slate-100" @click="proposal = null">Annuler</button>
+    <button v-if="proposal.kind === 'entity'" class="block w-full px-3 py-2 text-left hover:bg-slate-100" @click.stop="createFromProposal('relation')">Une association</button>
+    <button class="block w-full px-3 py-2 text-left hover:bg-slate-100" @click.stop="createFromProposal('entity')">Une entité</button>
+    <button class="block w-full px-3 py-2 text-left text-slate-500 hover:bg-slate-100" @click.stop="closeMenus">Annuler</button>
+  </div>
+
+  <div
+    v-if="contextMenu"
+    class="absolute z-50 w-48 rounded-md border border-slate-200 bg-surface py-1 text-sm shadow-lg"
+    :style="{ left: `${contextMenu.px}px`, top: `${contextMenu.py}px` }"
+  >
+    <template v-if="!contextMenu.node">
+      <button class="block w-full px-3 py-2 text-left hover:bg-slate-100" @click.stop="handleContextAction('add-entity')">Créer une entité</button>
+      <button class="block w-full px-3 py-2 text-left hover:bg-slate-100" @click.stop="handleContextAction('add-relation')">Créer une association</button>
+    </template>
+    <template v-else>
+      <button class="block w-full px-3 py-2 text-left hover:bg-slate-100" @click.stop="handleContextAction('edit')">Éditer</button>
+      <button class="block w-full px-3 py-2 text-left hover:bg-slate-100" @click.stop="handleContextAction('duplicate')">Dupliquer</button>
+      <hr class="my-1 border-slate-200" />
+      <button class="block w-full px-3 py-2 text-left text-red-600 hover:bg-red-50" @click.stop="handleContextAction('delete')">Supprimer</button>
+    </template>
   </div>
   </div>
 </template>

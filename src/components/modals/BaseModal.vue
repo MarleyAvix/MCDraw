@@ -37,7 +37,7 @@ onUnmounted(() => {
         :aria-labelledby="titleId"
         tabindex="-1"
         class="flex max-h-[90vh] w-full flex-col rounded-lg bg-surface shadow-xl outline-none"
-        :class="wide ? 'max-w-3xl' : 'max-w-xl'"
+        :class="wide ? 'max-w-5xl' : 'max-w-xl'"
       >
         <header class="flex items-center justify-between border-b border-slate-200 px-5 py-3">
           <h2 :id="titleId" class="text-base font-semibold">{{ title }}</h2>

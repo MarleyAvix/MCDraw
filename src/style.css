@@ -89,3 +89,19 @@ input[type='text'], input:not([type]) { cursor: text; }
 /* Résultat de recherche : halo clignotant autour du nœud trouvé. */
 .search-hit { outline: 3px solid #e3b341; outline-offset: 4px; animation: search-hit 0.8s ease-in-out 3; }
 @keyframes search-hit { 50% { outline-color: transparent; } }
+
+/* Scrollbars personnalisées (plus fines et adaptées au thème) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-slate-300);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-slate-400);
+}
