@@ -79,7 +79,9 @@ function pick(c: Cardinality) {
       >
         {{ data?.cardinality }}<span v-if="data?.identifying" class="ml-1 font-normal text-indigo-600" title="Identifiant relatif">(CIF)</span><span v-if="data?.role" class="ml-1 font-normal text-slate-500">({{ data.role }})</span>
       </button>
-      <div v-if="open" class="absolute left-1/2 top-full z-10 mt-1 flex -translate-x-1/2 overflow-hidden rounded border border-slate-300 bg-surface shadow-lg">
+      <!-- pt-1 (et non mt-1) : pas de vide entre le bouton et le menu, sinon `mouseleave` le referme avant d'y arriver. -->
+      <div v-if="open" class="absolute left-1/2 top-full z-10 -translate-x-1/2 pt-1">
+      <div class="flex overflow-hidden rounded border border-slate-300 bg-surface shadow-lg">
         <button
           v-for="c in CARDINALITIES"
           :key="c"
@@ -93,6 +95,7 @@ function pick(c: Cardinality) {
           <button class="px-2 py-1 text-xs" :class="!data?.curved ? 'bg-indigo-600 text-white' : 'hover:bg-slate-100'" title="Trait droit" @click.stop="setCurved(false)">Droit</button>
           <button class="px-2 py-1 text-xs" :class="data?.curved ? 'bg-indigo-600 text-white' : 'hover:bg-slate-100'" title="Trait courbe" @click.stop="setCurved(true)">Courbe</button>
         </div>
+      </div>
       </div>
     </div>
   </EdgeLabelRenderer>
