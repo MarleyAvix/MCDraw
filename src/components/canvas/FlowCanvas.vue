@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { ConnectionMode, VueFlow, useVueFlow, type Connection, type NodeMouseEvent } from '@vue-flow/core'
+import { ConnectionMode, SelectionMode, VueFlow, useVueFlow, type Connection, type NodeMouseEvent } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
 import { useSchemaStore } from '../../stores/schemaStore'
@@ -14,6 +14,8 @@ const store = useSchemaStore()
 const { isDark } = useTheme()
 const { onNodeDragStop, onNodeDoubleClick, onEdgeClick, onNodesChange, onEdgesChange, onConnect, onConnectStart, onConnectEnd, screenToFlowCoordinate } = useVueFlow('mcdraw')
 
+// Glisser sur le fond trace un rectangle de sélection (`selection-key-code` à true) ; la vue se déplace avec Espace + glisser
+// ou la molette cliquée (`pan-on-drag` doit contenir 0 pour qu'Espace fonctionne). Sélection « partielle » : toucher suffit.
 // `nodes` contient tous les nœuds déplacés ensemble (sélection multiple), pas seulement celui saisi.
 onNodeDragStop(({ node, nodes }) => {
   const moved = nodes?.length ? nodes : [node]
@@ -181,6 +183,10 @@ onConnect((c: Connection) => {
     :is-valid-connection="isValid"
     :delete-key-code="['Delete', 'Backspace']"
     :multi-selection-key-code="['Control', 'Meta']"
+    :selection-key-code="true"
+    :selection-mode="SelectionMode.Partial"
+    :pan-on-drag="[0, 1]"
+    pan-activation-key-code="Space"
     fit-view-on-init
     class="bg-slate-50"
     @pane-click="closeMenus"

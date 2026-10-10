@@ -59,12 +59,32 @@ const btn = "inline-flex items-center justify-center rounded-md border border-sl
             <kbd class="rounded bg-slate-100 px-2 py-1 font-mono text-xs text-slate-800">V</kbd>
           </div>
         </div>
-        <div class="flex justify-between pb-2">
+        <div class="flex justify-between border-b border-slate-100 pb-2">
           <span class="font-semibold text-slate-600">Dupliquer</span>
           <div class="flex gap-1">
             <kbd class="rounded bg-slate-100 px-2 py-1 font-mono text-xs text-slate-800">Ctrl</kbd>
             <span>+</span>
             <kbd class="rounded bg-slate-100 px-2 py-1 font-mono text-xs text-slate-800">D</kbd>
+          </div>
+        </div>
+        <div class="flex justify-between border-b border-slate-100 pb-2">
+          <span class="font-semibold text-slate-600">Sélection rectangle</span>
+          <span class="text-xs text-slate-500">Glisser sur le fond</span>
+        </div>
+        <div class="flex justify-between border-b border-slate-100 pb-2">
+          <span class="font-semibold text-slate-600">Ajouter à la sélection</span>
+          <div class="flex gap-1">
+            <kbd class="rounded bg-slate-100 px-2 py-1 font-mono text-xs text-slate-800">Ctrl</kbd>
+            <span>+</span>
+            <span class="text-xs text-slate-500">clic ou rectangle</span>
+          </div>
+        </div>
+        <div class="flex justify-between pb-2">
+          <span class="font-semibold text-slate-600">Déplacer la vue</span>
+          <div class="flex items-center gap-1">
+            <kbd class="rounded bg-slate-100 px-2 py-1 font-mono text-xs text-slate-800">Espace</kbd>
+            <span>+</span>
+            <span class="text-xs text-slate-500">glisser (ou molette cliquée)</span>
           </div>
         </div>
       </div>
