@@ -158,18 +158,57 @@ test.describe('parcours principaux', () => {
     await expect(page.locator('.vue-flow__node.selected')).toHaveCount(0)
   })
 
-  test('Espace + glisser déplace la vue sans sélectionner', async ({ page }) => {
+  test('la molette zoome et un balayage horizontal déplace la vue', async ({ page }) => {
     await page.goto('/')
     await expect(page.locator('.vue-flow__node').first()).toBeVisible()
     const pane = page.locator('.vue-flow__transformationpane')
-    const before = await pane.evaluate((el) => (el as HTMLElement).style.transform)
-    await page.keyboard.down('Space')
-    await page.mouse.move(600, 600)
+    const transform = () => pane.evaluate((el) => (el as HTMLElement).style.transform)
+    const scale = async () => Number(/scale\(([\d.]+)\)/.exec(await transform())![1])
+
+    await page.mouse.move(600, 500)
+    const z0 = await scale()
+    await page.mouse.wheel(0, -300)
+    await expect.poll(scale).toBeGreaterThan(z0) // avant : zoom avant
+    const z1 = await scale()
+    await page.mouse.wheel(0, 600)
+    await expect.poll(scale).toBeLessThan(z1) // arrière : dézoom
+
+    const before = await transform()
+    const zBefore = await scale()
+    await page.mouse.wheel(120, 0)
+    await expect.poll(transform).not.toBe(before)
+    expect(await scale()).toBeCloseTo(zBefore, 5) // le zoom ne bouge pas pendant le balayage
+  })
+
+  test("l'outil Main déplace la vue, l'outil Sélection revient au rectangle", async ({ page }) => {
+    await page.goto('/')
+    await expect(page.locator('.vue-flow__node').first()).toBeVisible()
+    const pane = page.locator('.vue-flow__transformationpane')
+    const transform = () => pane.evaluate((el) => (el as HTMLElement).style.transform)
+    // point vide du fond
+    const empty = await page.evaluate(() => {
+      for (let y = 420; y < 560; y += 20) for (let x = 60; x < 900; x += 40) {
+        const el = document.elementFromPoint(x, y)
+        if (el?.classList.contains('vue-flow__pane')) return { x, y }
+      }
+      return null
+    })
+    expect(empty).not.toBeNull()
+
+    await page.getByTitle('Main (glisser = déplacer la vue)').click()
+    const before = await transform()
+    await page.mouse.move(empty!.x, empty!.y)
     await page.mouse.down()
-    await page.mouse.move(520, 560, { steps: 6 })
+    await page.mouse.move(empty!.x + 40, empty!.y + 30, { steps: 6 })
     await page.mouse.up()
-    await page.keyboard.up('Space')
-    expect(await pane.evaluate((el) => (el as HTMLElement).style.transform)).not.toBe(before)
-    await expect(page.locator('.vue-flow__node.selected')).toHaveCount(0)
+    expect(await transform()).not.toBe(before)
+
+    await page.getByTitle('Sélection (glisser = rectangle)').click()
+    const again = await transform()
+    await page.mouse.move(empty!.x, empty!.y)
+    await page.mouse.down()
+    await page.mouse.move(empty!.x + 40, empty!.y + 30, { steps: 6 })
+    await page.mouse.up()
+    expect(await transform()).toBe(again)
   })
 })

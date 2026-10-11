@@ -116,3 +116,8 @@ input[type='text'], input:not([type]) { cursor: text; }
 .link-handle { opacity: .35; transition: opacity .15s; }
 .link-handle:hover { opacity: 1; }
 .exporting .link-handle { display: none; }
+
+/* Outil « main » : curseur de déplacement ; bouton d'outil actif dans la barre de gauche. */
+.tool-pan .vue-flow__pane, .tool-pan .vue-flow__pane.draggable { cursor: grab; }
+.tool-pan .vue-flow__pane.dragging { cursor: grabbing; }
+:root .vue-flow__controls-button.tool-active { background: var(--color-indigo-100); color: var(--color-indigo-700); }
