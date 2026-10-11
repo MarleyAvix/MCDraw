@@ -11,6 +11,7 @@ A light, fast, in-browser diagramming tool: Merise conceptual models (MCD) that 
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-38bdf8?logo=tailwindcss&logoColor=white)
 ![Tests](https://img.shields.io/badge/tests-Vitest%20%2B%20Playwright-6e9f18?logo=vitest&logoColor=white)
+![License: MIT](https://img.shields.io/badge/license-MIT-green)
 ![No account](https://img.shields.io/badge/no%20account-no%20server-indigo)
 
 <img src="docs/screenshots/mcd-light.png" alt="MCDraw — conceptual model with the computed MLD panel" width="900" />
@@ -137,3 +138,7 @@ To add a type (mind map, org chart…): create a folder in `src/documents/`, imp
 ## Contributing
 
 MCDraw is an open-source side project and contributions are welcome — bug reports, ideas, new diagram types, translations. Please run `npm test` and `npm run build` before opening a pull request. Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) style.
+
+## License
+
+[MIT](LICENSE) © 2026 Marley Avix

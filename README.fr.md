@@ -11,6 +11,7 @@ Un outil de diagrammes léger et rapide, dans le navigateur : des modèles conce
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-38bdf8?logo=tailwindcss&logoColor=white)
 ![Tests](https://img.shields.io/badge/tests-Vitest%20%2B%20Playwright-6e9f18?logo=vitest&logoColor=white)
+![Licence : MIT](https://img.shields.io/badge/licence-MIT-green)
 ![Sans compte](https://img.shields.io/badge/sans%20compte-sans%20serveur-indigo)
 
 <img src="docs/screenshots/mcd-light.png" alt="MCDraw — modèle conceptuel et panneau MLD calculé" width="900" />
@@ -137,3 +138,7 @@ Pour ajouter un type (carte mentale, organigramme…) : créez un dossier dans `
 ## Contribuer
 
 MCDraw est un projet open source mené en parallèle d'autres activités, et les contributions sont les bienvenues — signalements de bugs, idées, nouveaux types de diagrammes, traductions. Lancez `npm test` et `npm run build` avant d'ouvrir une pull request. Les commits suivent la convention [Conventional Commits](https://www.conventionalcommits.org/).
+
+## Licence
+
+[MIT](LICENSE) © 2026 Marley Avix
