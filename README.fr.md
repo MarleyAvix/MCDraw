@@ -3,7 +3,7 @@
 # MCDraw
 
 **Dessinez votre modèle de données. Obtenez votre base.**<br/>
-Un outil de diagrammes léger et rapide, dans le navigateur : des modèles conceptuels Merise (MCD) qui deviennent du SQL, du code d'ORM et des données de test — et des schémas de brainstorming simples comme le plan de site.
+Un outil de diagrammes léger et rapide, dans le navigateur : des modèles conceptuels Merise (MCD) qui deviennent du SQL, du code d'ORM et des données de test — et des schémas de brainstorming simples comme le plan de site et la carte mentale.
 
 [🇬🇧 English](README.md) · [🇫🇷 Français](README.fr.md)
 
@@ -31,6 +31,7 @@ Un outil de diagrammes léger et rapide, dans le navigateur : des modèles conce
 | --- | --- |
 | **Base de données** (Merise) | Éditeur de MCD avec cardinalités, identifiant relatif (CIF), héritage → **MLD** calculé, vues **ERD** (pattes de corbeau) et **UML** (diagramme de classes) |
 | **Plan de site** | Saisissez vos pages en liste indentée *ou* dessinez l'arbre — les deux restent synchronisés. Export d'une liste **Markdown** ou d'un **`sitemap.xml`** (sitemaps.org) |
+| **Carte mentale** | Jetez vos idées en liste indentée ou faites pousser les branches sur la carte. Mise en page équilibrée autour de l'idée centrale, une couleur par branche, branches repliables. Export **Markdown** ou **OPML** (XMind, MindNode, OmniOutliner…) |
 
 <table>
   <tr>
@@ -63,6 +64,12 @@ Un outil de diagrammes léger et rapide, dans le navigateur : des modèles conce
 - Mise en page d'arbre déterministe qui respecte l'ordre de vos lignes.
 - Sous-page `N`, page de même niveau `S`, boutons **Avant / Après** pour réordonner, renommage direct, adresse et note par page, copier-coller de sous-arbres entiers, recherche.
 - Trois modèles de départ.
+
+### Carte mentale
+
+- Même synchronisation texte ⇄ carte en direct que le plan de site, avec une mise en page équilibrée (les branches se répartissent à gauche et à droite de l'idée centrale) et une couleur par branche.
+- `Tab` ajoute une sous-idée, `Entrée` une idée au même niveau, `Espace` replie / déplie une branche ; boutons **Monter / Descendre** pour réordonner les sœurs, note par idée, copier-coller de branches entières, recherche.
+- Trois modèles de départ ; export **Markdown** ou **OPML**.
 
 ### Partout
 
@@ -124,16 +131,17 @@ Un *type de document* se décrit par un seul contrat, [`DocumentType`](src/core/
 
 ```
 src/
-├─ core/          contrat DocumentType, registre, état du shell
+├─ core/          contrat DocumentType, registre, état du shell, outils d'arbre partagés
 ├─ documents/
 │  ├─ mcd/        Base de données (Merise)
-│  └─ sitemap/    Plan de site
+│  ├─ sitemap/    Plan de site
+│  └─ mindmap/    Carte mentale
 ├─ engine/        logique pure : MCD → MLD, SQL, ORM, données de test, liens de partage…
 ├─ composables/   historique, sauvegarde, outils du canvas, import/export de fichiers…
 └─ components/    canvas, panneaux et fenêtres du type base de données
 ```
 
-Pour ajouter un type (carte mentale, organigramme…) : créez un dossier dans `src/documents/`, implémentez `DocumentType`, puis enregistrez-le dans `src/documents/index.ts`. L'historique, la sauvegarde, l'export JSON, le partage par lien et la recherche viennent sans effort.
+Pour ajouter un type (organigramme, diagramme de flux…) : créez un dossier dans `src/documents/`, implémentez `DocumentType`, puis enregistrez-le dans `src/documents/index.ts`. L'historique, la sauvegarde, l'export JSON, le partage par lien et la recherche viennent sans effort.
 
 ## Contribuer
 

@@ -2,6 +2,7 @@
  * Moteur du sitemap : un arbre de pages. L'ordre du tableau est l'ordre des pages sœurs.
  * Tout ici est pur (pas de Vue, pas de DOM) : saisie texte, export Markdown / sitemap.xml, validation.
  */
+import { childrenOf, moveSibling, repairTree, rootsOf, walkTree } from '../../core/tree'
 
 export interface SitemapPage {
   id: string
@@ -26,73 +27,11 @@ export const emptySitemap = (): SitemapSchema => ({ pages: [] })
 
 // --- Arbre -----------------------------------------------------------------
 
-export const childrenOf = (pages: SitemapPage[], id: string | undefined) => pages.filter((p) => p.parentId === id)
-
-/** Les racines : pages sans mère (ou dont la mère n'existe pas). */
-export function rootsOf(pages: SitemapPage[]) {
-  const ids = new Set(pages.map((p) => p.id))
-  return pages.filter((p) => !p.parentId || !ids.has(p.parentId))
-}
-
-/** Page et toutes ses descendantes. */
-export function subtreeIds(pages: SitemapPage[], id: string): Set<string> {
-  const out = new Set<string>([id])
-  let grew = true
-  while (grew) {
-    grew = false
-    for (const p of pages) {
-      if (p.parentId && out.has(p.parentId) && !out.has(p.id)) {
-        out.add(p.id)
-        grew = true
-      }
-    }
-  }
-  return out
-}
-
-/** Profondeur de chaque page (racine = 0). */
-export function depths(pages: SitemapPage[]): Map<string, number> {
-  const byId = new Map(pages.map((p) => [p.id, p]))
-  const out = new Map<string, number>()
-  const depthOf = (p: SitemapPage, seen = new Set<string>()): number => {
-    const known = out.get(p.id)
-    if (known !== undefined) return known
-    const parent = p.parentId ? byId.get(p.parentId) : undefined
-    const d = parent && !seen.has(parent.id) ? depthOf(parent, seen.add(p.id)) + 1 : 0
-    out.set(p.id, d)
-    return d
-  }
-  for (const p of pages) depthOf(p)
-  return out
-}
-
-/**
- * Échange la page avec sa sœur précédente (`dir` -1) ou suivante (+1). L'ordre des sœurs est celui du tableau :
- * échanger les deux entrées suffit, les sous-pages suivent leur mère. Renvoie `null` s'il n'y a pas de sœur de ce côté.
- */
-export function movePage(pages: SitemapPage[], id: string, dir: -1 | 1): SitemapPage[] | null {
-  const page = pages.find((p) => p.id === id)
-  if (!page) return null
-  const sibs = pages.filter((p) => (p.parentId ?? undefined) === (page.parentId ?? undefined))
-  const other = sibs[sibs.indexOf(page) + dir]
-  if (!other) return null
-  const next = [...pages]
-  const [i, j] = [pages.indexOf(page), pages.indexOf(other)]
-  next[i] = other
-  next[j] = page
-  return next
-}
+export { childrenOf, depths, rootsOf, subtreeIds } from '../../core/tree'
+export const movePage = moveSibling<SitemapPage>
 
 /** Parcours en profondeur dans l'ordre d'affichage. */
-export function walk(pages: SitemapPage[]): { page: SitemapPage; depth: number }[] {
-  const out: { page: SitemapPage; depth: number }[] = []
-  const visit = (p: SitemapPage, depth: number) => {
-    out.push({ page: p, depth })
-    for (const c of childrenOf(pages, p.id)) visit(c, depth + 1)
-  }
-  for (const r of rootsOf(pages)) visit(r, 0)
-  return out
-}
+export const walk = (pages: SitemapPage[]) => walkTree(pages).map(({ item, depth }) => ({ page: item, depth }))
 
 /**
  * Mise en page en arbre, de haut en bas : les sœurs se suivent de gauche à droite dans l'ordre du plan, et chaque page
@@ -271,23 +210,6 @@ export function sanitizeSitemap(raw: unknown, makeId: () => string): SitemapSche
       }
     })
 
-  const ids = new Set(pages.map((p) => p.id))
-  const byId = new Map(pages.map((p) => [p.id, p]))
-  for (const p of pages) {
-    if (p.parentId && (!ids.has(p.parentId) || p.parentId === p.id)) delete p.parentId
-  }
-  // Coupe les cycles : en remontant depuis chaque page, on détache celle qui boucle.
-  for (const p of pages) {
-    const seen = new Set<string>([p.id])
-    let cur = p
-    while (cur.parentId) {
-      if (seen.has(cur.parentId)) {
-        delete cur.parentId
-        break
-      }
-      seen.add(cur.parentId)
-      cur = byId.get(cur.parentId)!
-    }
-  }
+  repairTree(pages)
   return { pages }
 }

@@ -311,5 +311,76 @@ test.describe('parcours principaux', () => {
       expect(md).toContain('- [Accueil](/)')
     })
   })
-})
 
+  test.describe('carte mentale', () => {
+    const nodes = (page: Page) => page.locator('.vue-flow__node')
+
+    test('bascule vers la carte mentale et la saisie texte construit les branches des deux côtés', async ({ page }) => {
+      await page.goto('/')
+      await page.getByRole('tab', { name: 'Carte mentale' }).click()
+      await expect(nodes(page).first()).toContainText('Application web')
+      const text = page.getByLabel('Description textuelle de la carte mentale')
+      await text.fill(['Centre', '  Haut', '  Bas', '  Gauche'].join('\n'))
+      await expect(nodes(page)).toHaveCount(4)
+
+      const box = async (name: string) => (await nodes(page).filter({ hasText: name }).first().boundingBox())!
+      expect((await box('Haut')).x).toBeGreaterThan((await box('Centre')).x)
+      expect((await box('Gauche')).x).toBeLessThan((await box('Centre')).x)
+
+      await text.fill(['Centre', '  -- seule'].join('\n'))
+      await expect(page.getByText('Texte manquant')).toBeVisible()
+      await expect(nodes(page)).toHaveCount(4) // la carte garde la dernière version valide
+    })
+
+    test('Tab ajoute une sous-idée, Espace replie puis déplie la branche', async ({ page }) => {
+      await page.goto('/')
+      await page.getByRole('tab', { name: 'Carte mentale' }).click()
+      await page.getByLabel('Description textuelle de la carte mentale').fill(['Centre', '  Branche', '    Feuille'].join('\n'))
+      await expect(nodes(page)).toHaveCount(3)
+
+      await nodes(page).filter({ hasText: 'Branche' }).first().click()
+      await page.keyboard.press('Tab')
+      await expect(nodes(page)).toHaveCount(4)
+
+      await nodes(page).filter({ hasText: 'Branche' }).first().click()
+      await page.keyboard.press('Space')
+      await expect(nodes(page)).toHaveCount(2) // Centre et Branche repliée
+      await page.keyboard.press('Space')
+      await expect(nodes(page)).toHaveCount(4)
+    })
+
+    test('OPML et Markdown s’exportent', async ({ page }) => {
+      await page.goto('/')
+      await page.getByRole('tab', { name: 'Carte mentale' }).click()
+      const [opml] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'OPML' }).click()])
+      expect(opml.suggestedFilename()).toBe('carte-mentale.opml')
+      const xml = await readFile((await opml.path())!, 'utf-8')
+      expect(xml).toContain('<opml version="2.0">')
+      expect(xml).toContain('text="Application web"')
+
+      const [md] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Markdown' }).click()])
+      expect(md.suggestedFilename()).toBe('carte-mentale.md')
+      expect(await readFile((await md.path())!, 'utf-8')).toContain('- Application web')
+    })
+
+    test('importer une carte depuis le MCD propose de basculer de type, et le lien de partage la rouvre', async ({ page, browser }) => {
+      page.on('dialog', (d) => d.accept())
+      await page.goto('/')
+      const payload = JSON.stringify({ nodes: [{ id: 'a', text: 'Idée importée' }, { id: 'b', text: 'Fille', parentId: 'a' }] })
+      await page.locator('input[type=file][accept*=json]').setInputFiles({ name: 'carte.json', mimeType: 'application/json', buffer: Buffer.from(payload) })
+      await expect(page.getByRole('tab', { name: 'Carte mentale' })).toHaveAttribute('aria-selected', 'true')
+      await expect(nodes(page)).toHaveCount(2)
+
+      await page.getByRole('button', { name: /Fichier/ }).click()
+      await page.getByRole('button', { name: /Partager par lien/ }).click()
+      const link = await page.locator('input[readonly]').inputValue()
+      expect(link).toContain('#share.mindmap=')
+      const other = await browser.newContext()
+      const p2 = await other.newPage()
+      await p2.goto(link)
+      await expect(p2.getByRole('tab', { name: 'Carte mentale' })).toHaveAttribute('aria-selected', 'true')
+      await expect(nodes(p2).filter({ hasText: 'Idée importée' })).toHaveCount(1)
+      await other.close()
+    })
+  })
+})
