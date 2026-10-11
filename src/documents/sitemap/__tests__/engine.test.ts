@@ -4,6 +4,7 @@ import {
   depths,
   layoutTree,
   mergeSitemap,
+  movePage,
   parseSitemapText,
   sanitizeSitemap,
   sitemapToMarkdown,
@@ -185,5 +186,32 @@ describe('layoutTree', () => {
     const p = pos(['X', 'Y'])
     expect(p.Y.x - p.X.x).toBe(size.w + gap.x)
     expect(p.X.y).toBe(p.Y.y)
+  })
+})
+
+describe('movePage', () => {
+  const titles = (pages: ReturnType<typeof parse>['schema']['pages']) => walk(pages).map((w) => w.page.title)
+  const idOf = (title: string) => parse().schema.pages.find((p) => p.title === title)!.id
+
+  it('échange une page avec sa sœur et emmène ses sous-pages', () => {
+    const { pages } = parse().schema
+    const moved = movePage(pages, idOf('Produits'), 1)!
+    expect(titles(moved)).toEqual(['Accueil', 'Contact', 'Produits', 'Chaussures', 'Mentions légales'])
+    expect(titles(movePage(moved, idOf('Produits'), -1)!)).toEqual(titles(pages))
+  })
+
+  it('déplace aussi les racines entre elles', () => {
+    const { pages } = parse().schema
+    expect(titles(movePage(pages, idOf('Mentions légales'), -1)!)).toEqual(['Mentions légales', 'Accueil', 'Produits', 'Chaussures', 'Contact'])
+  })
+
+  it('renvoie null au bout de la fratrie, pour une page seule ou inconnue, sans modifier l’original', () => {
+    const { pages } = parse().schema
+    const copy = structuredClone(pages)
+    expect(movePage(pages, idOf('Accueil'), -1)).toBeNull()
+    expect(movePage(pages, idOf('Contact'), 1)).toBeNull()
+    expect(movePage(pages, idOf('Chaussures'), 1)).toBeNull() // fille unique
+    expect(movePage(pages, 'inconnue', 1)).toBeNull()
+    expect(pages).toEqual(copy)
   })
 })

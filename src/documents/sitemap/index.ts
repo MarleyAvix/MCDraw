@@ -1,6 +1,6 @@
 import { computed, toRef, type Ref } from 'vue'
 import { useVueFlow } from '@vue-flow/core'
-import { CornerDownRight, FileCode2, FileText, ListTree, Maximize2, Plus, RotateCcw, TextCursorInput } from 'lucide-vue-next'
+import { ArrowLeft, ArrowRight, CornerDownRight, FileCode2, FileText, ListTree, Maximize2, Plus, RotateCcw, TextCursorInput } from 'lucide-vue-next'
 import type { DocumentApi, DocumentType } from '../../core/documentType'
 import { downloadBlob } from '../../composables/useFileIO'
 import { SITEMAP_EXAMPLES, useSitemapStore } from './sitemapStore'
@@ -68,6 +68,7 @@ export const sitemapDocument: DocumentType<SitemapSchema> = {
   tagline: 'Posez le plan de votre site en quelques lignes.',
   icon: ListTree,
   fileName: 'sitemap',
+  accepts: (raw) => typeof raw === 'object' && raw !== null && Array.isArray((raw as { pages?: unknown }).pages),
 
   useDocument: useSitemapDocument,
   examples: SITEMAP_EXAMPLES.map(({ id, label, description }) => ({ id, label, description, category: 'modele' })),
@@ -82,6 +83,24 @@ export const sitemapDocument: DocumentType<SitemapSchema> = {
   actions: [
     { id: 'page', label: 'Page', title: 'Ajouter une sous-page à la page sélectionnée', icon: Plus, iconClass: 'text-indigo-600', group: 'create', run: addChild },
     { id: 'sibling', label: 'Même niveau', title: 'Ajouter une page au même niveau', icon: CornerDownRight, iconClass: 'text-amber-600', group: 'create', run: addSibling },
+    {
+      id: 'move-left',
+      label: 'Avant',
+      title: 'Placer la page avant sa sœur (vers la gauche)',
+      icon: ArrowLeft,
+      group: 'tools',
+      run: () => { const s = useSitemapStore(); s.movePageBy(s.selection[0], -1) },
+      disabled: () => { const s = useSitemapStore(); return s.selection.length !== 1 || !s.canMove(s.selection[0], -1) },
+    },
+    {
+      id: 'move-right',
+      label: 'Après',
+      title: 'Placer la page après sa sœur (vers la droite)',
+      icon: ArrowRight,
+      group: 'tools',
+      run: () => { const s = useSitemapStore(); s.movePageBy(s.selection[0], 1) },
+      disabled: () => { const s = useSitemapStore(); return s.selection.length !== 1 || !s.canMove(s.selection[0], 1) },
+    },
     {
       id: 'text',
       label: 'Texte',

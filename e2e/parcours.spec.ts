@@ -241,6 +241,61 @@ test.describe('parcours principaux', () => {
       await expect(nodes(page)).toHaveCount(3) // l'arbre garde la dernière version valide
     })
 
+    test('importer un plan de site depuis le MCD propose de basculer de type', async ({ page }) => {
+      const asked: string[] = []
+      page.on('dialog', (d) => {
+        asked.push(d.message())
+        d.accept()
+      })
+      await page.goto('/')
+      const payload = JSON.stringify({ pages: [{ id: 'a', title: 'Racine importée', url: '/' }] })
+      await page.locator('input[type=file][accept*=json]').setInputFiles({ name: 'plan.json', mimeType: 'application/json', buffer: Buffer.from(payload) })
+      await expect(page.getByRole('tab', { name: 'Plan de site' })).toHaveAttribute('aria-selected', 'true')
+      await expect(nodes(page).filter({ hasText: 'Racine importée' })).toHaveCount(1)
+      expect(asked.some((m) => m.includes('Plan de site'))).toBe(true)
+    })
+
+    test('sitemap.xml se télécharge avec l’adresse du site saisie', async ({ page }) => {
+      page.on('dialog', (d) => (d.type() === 'prompt' ? d.accept('https://exemple.fr') : d.accept()))
+      await page.goto('/')
+      await page.getByRole('tab', { name: 'Plan de site' }).click()
+      const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'sitemap.xml' }).click()])
+      expect(download.suggestedFilename()).toBe('sitemap.xml')
+      const xml = await readFile((await download.path())!, 'utf-8')
+      expect(xml).toContain('<urlset')
+      expect(xml).toContain('<loc>https://exemple.fr/</loc>')
+    })
+
+    test('le lien de partage d’un plan rouvre le même plan dans un nouveau contexte', async ({ page, browser }) => {
+      await page.goto('/')
+      await page.getByRole('tab', { name: 'Plan de site' }).click()
+      const expected = await nodes(page).count()
+      await page.getByRole('button', { name: /Fichier/ }).click()
+      await page.getByRole('button', { name: /Partager par lien/ }).click()
+      const link = await page.locator('input[readonly]').inputValue()
+      expect(link).toContain('#share.sitemap=')
+
+      const other = await browser.newContext()
+      const p2 = await other.newPage()
+      await p2.goto(link)
+      await expect(p2.getByRole('tab', { name: 'Plan de site' })).toHaveAttribute('aria-selected', 'true')
+      await expect(nodes(p2)).toHaveCount(expected)
+      await other.close()
+    })
+
+    test('Avant / Après réordonne les sœurs et le texte suit', async ({ page }) => {
+      await page.goto('/')
+      await page.getByRole('tab', { name: 'Plan de site' }).click()
+      const text = page.getByLabel('Description textuelle du plan de site')
+      await text.fill(['Accueil /', '  Blog /blog', '  Contact /contact'].join('\n'))
+      const box = async (name: string) => (await nodes(page).filter({ hasText: name }).first().boundingBox())!
+      await nodes(page).filter({ hasText: 'Contact' }).first().click()
+      await page.getByRole('button', { name: 'Avant', exact: true }).click()
+      await expect.poll(async () => (await box('Contact')).x < (await box('Blog')).x).toBe(true)
+      await expect(text).toHaveValue(/Contact[^\n]*\n\s+Blog/)
+      await expect(page.getByRole('button', { name: 'Avant', exact: true })).toBeDisabled() // déjà la première
+    })
+
     test('le bouton Page ajoute une sous-page, annuler la retire, et Markdown s’exporte', async ({ page }) => {
       await page.goto('/')
       await page.getByRole('tab', { name: 'Plan de site' }).click()

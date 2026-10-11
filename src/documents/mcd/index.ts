@@ -16,6 +16,8 @@ import SqlExportModal from '../../components/panels/SqlExportModal.vue'
 import SqlImportModal from '../../components/panels/SqlImportModal.vue'
 import { mcdSearchIndex } from './searchIndex'
 
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null
+
 function useMcdDocument(): DocumentApi<MeriseSchema> {
   const store = useSchemaStore()
   return {
@@ -44,6 +46,7 @@ export const mcdDocument: DocumentType<MeriseSchema> = {
   tagline: 'Concevez vos MCD, exportez vos MLD en un clic.',
   icon: Database,
   fileName: 'mcdraw',
+  accepts: (raw) => isRecord(raw) && Array.isArray(raw.entities) && Array.isArray(raw.relations) && Array.isArray(raw.links),
 
   useDocument: useMcdDocument,
   examples: EXAMPLES.map(({ id, label, description, category }) => ({ id, label, description, category })),
