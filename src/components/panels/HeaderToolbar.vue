@@ -45,7 +45,7 @@ const panel = 'absolute left-0 top-full z-40 mt-1 rounded-md border border-slate
 </script>
 
 <template>
-  <div class="flex flex-wrap items-center gap-4">
+  <div class="flex flex-wrap items-center gap-x-3 gap-y-2 2xl:gap-4">
     <!-- Type de document (visible dès qu'il y en a plusieurs) -->
     <div v-if="types.length > 1" class="inline-flex overflow-hidden rounded-md border border-slate-300" role="tablist" aria-label="Type de diagramme">
       <button
@@ -111,7 +111,7 @@ const panel = 'absolute left-0 top-full z-40 mt-1 rounded-md border border-slate
     </div>
 
     <!-- Séparateur -->
-    <span class="hidden h-6 w-px bg-slate-200 lg:block" />
+    <span class="hidden h-6 w-px bg-slate-200 2xl:block" />
 
     <!-- Actions propres au type de document -->
     <template v-if="headerActions().length">
@@ -121,14 +121,15 @@ const panel = 'absolute left-0 top-full z-40 mt-1 rounded-md border border-slate
           :key="a.id"
           :class="a.primary ? 'inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-indigo-700' : btn"
           :title="a.title"
+          :aria-label="a.compact ? a.label : undefined"
           @click="a.run(ctx())"
         >
-          <component :is="a.icon" :size="16" /> {{ a.label }}
+          <component :is="a.icon" :size="16" /> <span :class="a.compact ? 'hidden 2xl:inline' : ''">{{ a.label }}</span>
         </button>
       </div>
 
       <!-- Séparateur -->
-      <span class="hidden h-6 w-px bg-slate-200 lg:block" />
+      <span class="hidden h-6 w-px bg-slate-200 2xl:block" />
     </template>
 
     <!-- Préférences / App -->

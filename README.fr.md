@@ -3,7 +3,7 @@
 # MCDraw
 
 **Dessinez votre modèle de données. Obtenez votre base.**<br/>
-Un outil de diagrammes léger et rapide, dans le navigateur : des modèles conceptuels Merise (MCD) qui deviennent du SQL, du code d'ORM et des données de test — et des schémas de brainstorming simples comme le plan de site et la carte mentale.
+Un outil de diagrammes léger et rapide, dans le navigateur : des modèles conceptuels Merise (MCD) qui deviennent du SQL, du code d'ORM et des données de test — et des schémas de brainstorming simples comme le plan de site et la carte mentale — et des descriptions d'API REST qui s'exportent en OpenAPI.
 
 [🇬🇧 English](README.md) · [🇫🇷 Français](README.fr.md)
 
@@ -32,6 +32,7 @@ Un outil de diagrammes léger et rapide, dans le navigateur : des modèles conce
 | **Base de données** (Merise) | Éditeur de MCD avec cardinalités, identifiant relatif (CIF), héritage → **MLD** calculé, vues **ERD** (pattes de corbeau) et **UML** (diagramme de classes) |
 | **Plan de site** | Saisissez vos pages en liste indentée *ou* dessinez l'arbre — les deux restent synchronisés. Export d'une liste **Markdown** ou d'un **`sitemap.xml`** (sitemaps.org) |
 | **Carte mentale** | Jetez vos idées en liste indentée ou faites pousser les branches sur la carte. Mise en page équilibrée autour de l'idée centrale, une couleur par branche, branches repliables. Export **Markdown** ou **OPML** (XMind, MindNode, OmniOutliner…) |
+| **API REST** | Décrivez ressources et routes (paramètres, en-têtes, corps, réponses, pagination, authentification) en texte ou sur l'arbre des routes ; un linter de conception vérifie les noms et les codes HTTP. Export **OpenAPI 3.1** (YAML / JSON), fichier de requêtes **`.http`** ou documentation **Markdown** — ou génération du CRUD directement depuis votre MCD |
 
 <table>
   <tr>
@@ -41,6 +42,12 @@ Un outil de diagrammes léger et rapide, dans le navigateur : des modèles conce
   <tr>
     <td align="center"><sub>MLD : tables, clés primaires et étrangères</sub></td>
     <td align="center"><sub>Plan de site : une page par ligne, l'indentation fait l'arbre</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/screenshots/api.png" alt="API REST : texte à gauche, arbre des routes à droite" /></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><sub>API REST : routes écrites en texte ou dessinées en arbre, exportées en OpenAPI</sub></td>
   </tr>
 </table>
 
@@ -70,6 +77,14 @@ Un outil de diagrammes léger et rapide, dans le navigateur : des modèles conce
 - Même synchronisation texte ⇄ carte en direct que le plan de site, avec une mise en page équilibrée (les branches se répartissent à gauche et à droite de l'idée centrale) et une couleur par branche.
 - `Tab` ajoute une sous-idée, `Entrée` une idée au même niveau, `Espace` replie / déplie une branche ; boutons **Monter / Descendre** pour réordonner les sœurs, note par idée, copier-coller de branches entières, recherche.
 - Trois modèles de départ ; export **Markdown** ou **OPML**.
+
+### API REST
+
+- Texte ⇄ arbre des routes, en direct et dans les deux sens : des blocs `schema User` puis une liste indentée de chemins et de méthodes (`GET Lister [auth] [paginated] -> 200 User[], 404`), avec corps de requête, paramètres de requête, en-têtes et note par réponse.
+- Deux vues : l'**arbre des routes** (une carte par chemin, pastilles de méthodes colorées, cadenas pour les routes protégées) et les **schémas** (cartes reliées par leurs références, avec l'usage de chacun).
+- **Linter de conception** (23 règles) : routes en double, schémas inconnus, verbes ou majuscules dans les chemins, collections au singulier, `404` / `400` / `401` manquants, `POST` sans `201`, listes non paginées, routes d'écriture publiques… Un clic sur une remarque mène à la route.
+- **Génération depuis le MCD** : une ressource et son schéma d'entrée par entité, les cinq routes CRUD, les listes imbriquées des relations 1–n, les routes de rattachement des associations n–n et les chemins imbriqués des identifiants relatifs (CIF). Annulable.
+- Exports : **OpenAPI 3.1** (YAML et JSON), fichier **`.http`** (REST Client de VS Code, JetBrains) avec corps d'exemple, documentation **Markdown**. Trois modèles de départ orientés développement (boutique, tâches, authentification).
 
 ### Partout
 
@@ -135,13 +150,14 @@ src/
 ├─ documents/
 │  ├─ mcd/        Base de données (Merise)
 │  ├─ sitemap/    Plan de site
-│  └─ mindmap/    Carte mentale
+│  ├─ mindmap/    Carte mentale
+│  └─ api/        API REST
 ├─ engine/        logique pure : MCD → MLD, SQL, ORM, données de test, liens de partage…
 ├─ composables/   historique, sauvegarde, outils du canvas, import/export de fichiers…
 └─ components/    canvas, panneaux et fenêtres du type base de données
 ```
 
-Pour ajouter un type (organigramme, diagramme de flux…) : créez un dossier dans `src/documents/`, implémentez `DocumentType`, puis enregistrez-le dans `src/documents/index.ts`. L'historique, la sauvegarde, l'export JSON, le partage par lien et la recherche viennent sans effort.
+Pour ajouter un type (organigramme, diagramme de flux, parcours utilisateur…) : créez un dossier dans `src/documents/`, implémentez `DocumentType`, puis enregistrez-le dans `src/documents/index.ts`. L'historique, la sauvegarde, l'export JSON, le partage par lien et la recherche viennent sans effort.
 
 ## Contribuer
 

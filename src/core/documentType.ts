@@ -20,7 +20,7 @@ export interface SearchHit {
   nodeId: string
   label: string
   context: string
-  kind: 'entity' | 'relation' | 'table' | 'attribute' | 'page' | 'idea'
+  kind: 'entity' | 'relation' | 'table' | 'attribute' | 'page' | 'idea' | 'route' | 'resource'
 }
 
 /** Ce que le shell sait faire d'un document, quel que soit son type. Chaque type l'implémente avec son propre store. */
@@ -69,6 +69,8 @@ export interface DocumentAction<S = unknown> {
   group?: 'create' | 'tools' | 'danger'
   /** Mise en avant (bouton plein). */
   primary?: boolean
+  /** Action secondaire : icône seule tant que la fenêtre n'est pas très large (le libellé reste le nom accessible). */
+  compact?: boolean
   /** Vues où l'action apparaît (toutes si absent). */
   views?: string[]
   run(ctx: ActionContext<S>): void

@@ -15,7 +15,7 @@ const groups = computed(() =>
   })).filter((g) => g.actions.length || g.history),
 )
 
-const btn = 'inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-surface px-3 py-1.5 text-sm font-medium hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-surface shadow-sm'
+const btn = 'inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-slate-300 bg-surface px-3 py-1.5 text-sm font-medium hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-surface shadow-sm'
 </script>
 
 <template>
@@ -33,9 +33,10 @@ const btn = 'inline-flex items-center gap-1.5 rounded-md border border-slate-300
         :title="a.title"
         :aria-pressed="a.pressed ? a.pressed(ctx()) : undefined"
         :disabled="a.disabled?.(ctx())"
+        :aria-label="a.compact ? a.label : undefined"
         @click="a.run(ctx())"
       >
-        <component :is="a.icon" :size="16" :class="a.iconClass" /> {{ a.label }}
+        <component :is="a.icon" :size="16" :class="a.iconClass" /> <span :class="a.compact ? 'hidden 2xl:inline' : ''">{{ a.label }}</span>
       </button>
     </template>
   </div>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useVueFlow } from '@vue-flow/core'
-import { Search, Square, Circle, Table2, TextCursorInput, FileText, Lightbulb, X } from 'lucide-vue-next'
+import { Search, Square, Circle, Table2, TextCursorInput, FileText, Lightbulb, Route, Braces, X } from 'lucide-vue-next'
 import { useActiveDocument } from '../../core/useActiveDocument'
 import type { SearchHit as Hit } from '../../core/documentType'
 
@@ -32,7 +32,7 @@ const results = computed<Hit[]>(() => {
 
 watch(results, () => (active.value = 0))
 
-const icons = { entity: Square, relation: Circle, table: Table2, attribute: TextCursorInput, page: FileText, idea: Lightbulb }
+const icons = { entity: Square, relation: Circle, table: Table2, attribute: TextCursorInput, page: FileText, idea: Lightbulb, route: Route, resource: Braces }
 
 /** Sélectionne l'élément, recadre le canvas dessus et le fait clignoter. */
 function pick(hit: Hit) {
