@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
-import { Plus, Trash2, X } from 'lucide-vue-next'
+import { ArrowDown, ArrowUp, Plus, Trash2, X } from 'lucide-vue-next'
 import BaseModal from '../../components/modals/BaseModal.vue'
 import { useApiStore } from './apiStore'
 import { METHOD_COLOR } from './methodStyle'
@@ -179,7 +179,29 @@ const iconBtn = 'rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-red-60
     </ul>
 
     <template #footer>
-      <button class="inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-sm text-red-600 hover:bg-red-50" @click="remove"><Trash2 :size="15" /> Supprimer</button>
+      <div class="flex items-center gap-1">
+        <button class="inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-sm text-red-600 hover:bg-red-50" @click="remove"><Trash2 :size="15" /> Supprimer</button>
+        <button
+          :class="iconBtn"
+          class="disabled:pointer-events-none disabled:opacity-30"
+          title="Placer avant la route précédente du même chemin"
+          aria-label="Monter la route"
+          :disabled="!store.canMoveEndpoint(e?.id, -1)"
+          @click="e && store.moveEndpointBy(e.id, -1)"
+        >
+          <ArrowUp :size="16" />
+        </button>
+        <button
+          :class="iconBtn"
+          class="disabled:pointer-events-none disabled:opacity-30"
+          title="Placer après la route suivante du même chemin"
+          aria-label="Descendre la route"
+          :disabled="!store.canMoveEndpoint(e?.id, 1)"
+          @click="e && store.moveEndpointBy(e.id, 1)"
+        >
+          <ArrowDown :size="16" />
+        </button>
+      </div>
       <div class="flex gap-2">
         <button class="rounded border border-slate-300 px-4 py-1.5 text-sm hover:bg-slate-100" @click="close">Annuler</button>
         <button class="rounded bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50" :disabled="problems.length > 0" @click="save">Enregistrer</button>

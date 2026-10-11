@@ -1,6 +1,6 @@
 import { computed, toRef, type Ref } from 'vue'
 import { useVueFlow } from '@vue-flow/core'
-import { Braces, Database, FileCode, FileJson, FileText, FolderPlus, Info, Maximize2, Plus, RotateCcw, Terminal, TextCursorInput, Webhook } from 'lucide-vue-next'
+import { ArrowDown, ArrowUp, Braces, Database, FileCode, FileJson, FileText, FolderPlus, Info, Maximize2, Plus, RotateCcw, Terminal, TextCursorInput, Webhook } from 'lucide-vue-next'
 import { getDocumentType, type ActionContext, type DocumentApi, type DocumentType } from '../../core/documentType'
 import { downloadBlob } from '../../composables/useFileIO'
 import type { MeriseSchema } from '../../types/schema'
@@ -108,6 +108,28 @@ export const apiDocument: DocumentType<ApiDocument> = {
   actions: [
     { id: 'subpath', label: 'Chemin', title: 'Ajouter un sous-chemin sous le chemin sélectionné', icon: FolderPlus, iconClass: 'text-indigo-600', hint: 'N', group: 'create', views: ['routes'], run: addNew },
     { id: 'method', label: 'Méthode', title: 'Ajouter une route (GET, POST…) sur le chemin sélectionné', icon: Plus, iconClass: 'text-emerald-600', hint: 'M', group: 'create', views: ['routes'], run: addMethod },
+    {
+      id: 'move-up',
+      label: 'Monter',
+      title: 'Placer le chemin avant son voisin (vers le haut)',
+      icon: ArrowUp,
+      compact: true,
+      group: 'tools',
+      views: ['routes'],
+      run: () => { const s = useApiStore(); s.movePathBy(selectedPath(s), -1) },
+      disabled: () => { const s = useApiStore(); return s.selection.length !== 1 || !s.canMovePath(s.selection[0], -1) },
+    },
+    {
+      id: 'move-down',
+      label: 'Descendre',
+      title: 'Placer le chemin après son voisin (vers le bas)',
+      icon: ArrowDown,
+      compact: true,
+      group: 'tools',
+      views: ['routes'],
+      run: () => { const s = useApiStore(); s.movePathBy(selectedPath(s), 1) },
+      disabled: () => { const s = useApiStore(); return s.selection.length !== 1 || !s.canMovePath(s.selection[0], 1) },
+    },
     { id: 'schema', label: 'Schéma', title: 'Ajouter un schéma (objet échangé par l’API)', icon: Braces, iconClass: 'text-amber-600', hint: 'R', group: 'create', run: addSchema },
     {
       id: 'text',
@@ -124,7 +146,9 @@ export const apiDocument: DocumentType<ApiDocument> = {
     {
       id: 'reset',
       label: 'Réinitialiser',
+      title: 'Effacer toute l’API',
       icon: RotateCcw,
+      compact: true,
       group: 'danger',
       run: ({ doc }) => { if (confirm('Effacer toute l’API ? (Ctrl+Z pour annuler)')) doc.reset() },
     },

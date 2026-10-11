@@ -489,6 +489,39 @@ test.describe('parcours principaux', () => {
       await expect(nodes(page).filter({ hasText: '/users' }).first()).toHaveClass(/selected/)
     })
 
+    test('Monter / Descendre réordonne les chemins, et la fenêtre d’édition réordonne les méthodes', async ({ page }) => {
+      await open(page)
+      await text(page).fill(['/a', '  GET', '/b', '  GET', '  POST', '/c', '  GET'].join('\n'))
+      await expect(nodes(page)).toHaveCount(4)
+      const up = page.getByRole('button', { name: 'Monter', exact: true })
+      await expect(up).toBeDisabled() // rien n'est sélectionné
+
+      await nodes(page).filter({ hasText: '/c' }).first().locator('.font-mono').first().click()
+      await up.click()
+      await up.click()
+      await expect(text(page)).toHaveValue(/^\/c\n {2}GET\n\/a\n/)
+      await expect(up).toBeDisabled() // déjà le premier
+      await page.getByRole('button', { name: 'Descendre', exact: true }).click()
+      await expect(text(page)).toHaveValue(/^\/a\n {2}GET\n\/c\n/)
+
+      await page.getByTitle('Modifier POST /b', { exact: true }).click()
+      const dialog = page.getByRole('dialog')
+      await dialog.getByRole('button', { name: 'Monter la route' }).click()
+      await expect(dialog.getByRole('button', { name: 'Monter la route' })).toBeDisabled()
+      await page.keyboard.press('Escape')
+      await expect(text(page)).toHaveValue(/\/b\n {2}POST\n {2}GET/)
+    })
+
+    test('les boutons de survol d’une carte ne figurent pas dans l’image exportée', async ({ page }) => {
+      await open(page)
+      const card = nodes(page).filter({ hasText: '/products' }).first()
+      await card.hover()
+      const add = card.getByRole('button', { name: 'Ajouter un sous-chemin' })
+      await expect(add).toBeVisible()
+      await page.locator('.vue-flow').first().evaluate((el) => el.classList.add('exporting')) // état pendant la capture
+      await expect(add).toBeHidden()
+    })
+
     test('les exports OpenAPI (YAML et JSON), .http et Markdown se téléchargent', async ({ page }) => {
       await open(page)
       const grab = async (name: string, file: string) => {

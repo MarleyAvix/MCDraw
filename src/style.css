@@ -116,6 +116,9 @@ input[type='text'], input:not([type]) { cursor: text; }
 .link-handle { opacity: .35; transition: opacity .15s; }
 .link-handle:hover { opacity: 1; }
 .exporting .link-handle { display: none; }
+/* Les boutons qui n'apparaissent qu'au survol d'une carte n'ont rien à faire dans l'image exportée (le repli d'une branche, lui, reste). */
+.exporting [class*="group-hover/node:opacity-100"] { display: none !important; }
+.exporting .route-row { background: transparent !important; }
 
 /* Outil « main » : curseur de déplacement ; bouton d'outil actif dans la barre de gauche. */
 .tool-pan .vue-flow__pane, .tool-pan .vue-flow__pane.draggable { cursor: grab; }

@@ -81,7 +81,7 @@ Un outil de diagrammes léger et rapide, dans le navigateur : des modèles conce
 ### API REST
 
 - Texte ⇄ arbre des routes, en direct et dans les deux sens : des blocs `schema User` puis une liste indentée de chemins et de méthodes (`GET Lister [auth] [paginated] -> 200 User[], 404`), avec corps de requête, paramètres de requête, en-têtes et note par réponse.
-- Deux vues : l'**arbre des routes** (une carte par chemin, pastilles de méthodes colorées, cadenas pour les routes protégées) et les **schémas** (cartes reliées par leurs références, avec l'usage de chacun).
+- Deux vues : l'**arbre des routes** (une carte par chemin, pastilles de méthodes colorées, cadenas pour les routes protégées, boutons **Monter / Descendre** pour réordonner chemins et méthodes) et les **schémas** (cartes reliées par leurs références, avec l'usage de chacun).
 - **Linter de conception** (23 règles) : routes en double, schémas inconnus, verbes ou majuscules dans les chemins, collections au singulier, `404` / `400` / `401` manquants, `POST` sans `201`, listes non paginées, routes d'écriture publiques… Un clic sur une remarque mène à la route.
 - **Génération depuis le MCD** : une ressource et son schéma d'entrée par entité, les cinq routes CRUD, les listes imbriquées des relations 1–n, les routes de rattachement des associations n–n et les chemins imbriqués des identifiants relatifs (CIF). Annulable.
 - Exports : **OpenAPI 3.1** (YAML et JSON), fichier **`.http`** (REST Client de VS Code, JetBrains) avec corps d'exemple, documentation **Markdown**. Trois modèles de départ orientés développement (boutique, tâches, authentification).

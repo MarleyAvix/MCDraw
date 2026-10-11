@@ -81,7 +81,7 @@ A light, fast, in-browser diagramming tool: Merise conceptual models (MCD) that 
 ### REST API
 
 - Text ⇄ route tree, live and two-way: `schema User` blocks plus an indented list of paths and methods (`GET Lister [auth] [paginated] -> 200 User[], 404`), with request body, query parameters, headers and notes per response.
-- Two views: the **route tree** (one card per path, coloured method badges, lock for protected routes) and the **schemas** (cards linked by their references, with where each one is used).
+- Two views: the **route tree** (one card per path, coloured method badges, lock for protected routes, **Up / Down** buttons to reorder paths and methods) and the **schemas** (cards linked by their references, with where each one is used).
 - **Design linter** (23 rules): duplicate routes, unknown schemas, verbs or capitals in paths, singular collections, missing `404` / `400` / `401`, `POST` without `201`, lists without pagination, public write routes… Click a remark to jump to the route.
 - **Generate from your MCD**: one resource and input schema per entity, the five CRUD routes, nested lists for 1–n relations, attach / detach routes for n–n associations and nested paths for relative identifiers (CIF). Undoable.
 - Exports: **OpenAPI 3.1** (YAML and JSON), **`.http`** file (VS Code REST Client, JetBrains) with sample bodies, **Markdown** documentation. Three developer-oriented starter templates (shop, tasks, authentication).

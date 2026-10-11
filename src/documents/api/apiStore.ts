@@ -6,7 +6,7 @@ import { usePersistence } from '../../composables/usePersistence'
 import { layoutHorizontalTree } from '../../core/tree'
 import { lintApi } from './lint'
 import { emptyApi, pathParams, refsOf, routeKey, sanitizeApi, segmentsOf, type ApiDocument, type ApiEndpoint, type ApiResource, type HttpMethod } from './model'
-import { buildPathTree, endpointsUnder, ROOT_PATH, type PathNode } from './pathTree'
+import { buildPathTree, endpointsUnder, moveEndpoint, movePath, ROOT_PATH, type PathNode } from './pathTree'
 import { parseApiText } from './text'
 
 const STORAGE_KEY = 'mcdraw:api:v1'
@@ -360,6 +360,22 @@ export const useApiStore = defineStore('api', () => {
     selection.value = selection.value.filter((p) => p === ROOT_PATH || doc.value.endpoints.some((e) => e.path === p || e.path.startsWith(`${p}/`)))
   }
 
+  /** Décale un chemin (et son sous-arbre) d'un rang parmi ses voisins (vers le haut : -1, vers le bas : +1). */
+  function movePathBy(path: string, dir: -1 | 1): boolean {
+    const next = movePath(doc.value.endpoints, path, dir)
+    if (next) doc.value.endpoints = next
+    return !!next
+  }
+  const canMovePath = (path: string | undefined, dir: -1 | 1) => !!path && !!movePath(doc.value.endpoints, path, dir)
+
+  /** Décale une route d'un rang parmi celles de son chemin. */
+  function moveEndpointBy(id: string, dir: -1 | 1): boolean {
+    const next = moveEndpoint(doc.value.endpoints, id, dir)
+    if (next) doc.value.endpoints = next
+    return !!next
+  }
+  const canMoveEndpoint = (id: string | undefined, dir: -1 | 1) => !!id && !!moveEndpoint(doc.value.endpoints, id, dir)
+
   /** Supprime les chemins et tout ce qui est en dessous (la racine : seulement ses propres routes). */
   function removePaths(paths: string[]) {
     const gone = new Set(paths.flatMap((p) => (p === ROOT_PATH ? doc.value.endpoints.filter((e) => e.path === ROOT_PATH) : endpointsUnder(doc.value.endpoints, p)).map((e) => e.id)))
@@ -500,7 +516,7 @@ export const useApiStore = defineStore('api', () => {
     doc, selection, editingEndpointId, editingResourceId, showInfoModal, showTextPanel, highlightId, view,
     schema, endpoints, resources, tree, issues, endpointById, resourceById, usage,
     routeNodes, routeEdges, resourceNodes, resourceEdges,
-    flash, addEndpoint, addSubPath, setEndpoint, removeEndpoint, removePaths, addResource, setResource, removeResources, setInfo,
+    flash, addEndpoint, addSubPath, setEndpoint, removeEndpoint, movePathBy, canMovePath, moveEndpointBy, canMoveEndpoint, removePaths, addResource, setResource, removeResources, setInfo,
     copy, paste, duplicate, selectAll, load, importSchema, reset, loadExample,
     undo, redo, canUndo, canRedo,
   }

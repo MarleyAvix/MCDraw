@@ -37,7 +37,7 @@ const problems = computed(() => {
     <ul v-if="node.endpoints.length" class="p-1">
       <li v-for="e in node.endpoints" :key="e.id">
         <button
-          class="nodrag nopan flex h-7 w-full items-center gap-2 rounded px-1.5 text-left hover:bg-slate-100"
+          class="route-row nodrag nopan flex h-7 w-full items-center gap-2 rounded px-1.5 text-left hover:bg-slate-100"
           :title="`Modifier ${e.method} ${e.path}`"
           @click.stop="store.editingEndpointId = e.id"
         >
