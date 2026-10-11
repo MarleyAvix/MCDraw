@@ -29,7 +29,7 @@ function requestLines(e: ApiEndpoint, api: ApiDocument): string[] {
   const lines = [`### ${e.summary ?? `${e.method} ${e.path}`}`]
   const note: string[] = []
 
-  const url = `{{baseUrl}}${e.path.replace(/\{(\w+)\}/g, (_, n: string) => `{{${n}}}`)}`
+  const url = `{{baseUrl}}${e.path.replace(/\{([^}]+)\}/g, (_, n: string) => `{{${n}}}`)}`
   const query = e.params.filter((p) => p.in === 'query')
   const required = query.filter((p) => !p.optional).map((p) => `${p.name}=${sampleText(p.type, api)}`)
   if (e.paginated && !query.some((p) => p.name === 'page')) required.push('page=1')

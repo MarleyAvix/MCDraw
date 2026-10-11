@@ -77,6 +77,7 @@ test.describe('parcours principaux', () => {
   })
 
   test('l’export image (PNG, SVG, PDF) fonctionne pour chaque type et chaque vue', async ({ page }) => {
+    test.setTimeout(90_000) // une dizaine de captures : large marge quand toute la suite tourne en parallèle
     const grab = async (menuItem: string) => {
       await page.getByRole('button', { name: /Fichier/ }).click()
       const [download] = await Promise.all([page.waitForEvent('download'), page.getByText(menuItem, { exact: true }).click()])
@@ -422,6 +423,18 @@ test.describe('parcours principaux', () => {
       await page.getByRole('tab', { name: 'API REST', exact: true }).click()
     }
     const text = (page: Page) => page.getByLabel("Description textuelle de l'API")
+    /** Ouvre « Fichier » puis « Importer un OpenAPI… » et renvoie le sélecteur de fichier. */
+    const chooseOpenApi = async (page: Page) => {
+      await page.getByRole('button', { name: /Fichier/ }).click()
+      const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.getByRole('button', { name: 'Importer un OpenAPI…' }).click()])
+      return chooser
+    }
+    /** Télécharge via une entrée du menu « Fichier ». */
+    const fromFileMenu = async (page: Page, item: string) => {
+      await page.getByRole('button', { name: /Fichier/ }).click()
+      const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: item, exact: true }).click()])
+      return download
+    }
 
     test('bascule vers l’API, affiche l’arbre des routes et revient au MCD intact', async ({ page }) => {
       await page.goto('/')
@@ -522,24 +535,114 @@ test.describe('parcours principaux', () => {
       await expect(add).toBeHidden()
     })
 
+    test('importe un fichier OpenAPI (YAML), signale les simplifications, et Ctrl+Z revient à l’API précédente', async ({ page }) => {
+      const dialogs: string[] = []
+      page.on('dialog', (d) => {
+        dialogs.push(d.message())
+        d.accept()
+      })
+      await open(page)
+      const before = await text(page).inputValue()
+      const yaml = ['openapi: 3.0.0', 'info: { title: Importée, version: "1.0" }', 'paths:', '  /pets/{id}:', '    get:', '      summary: Un animal', '      responses:', '        "200":', '          description: OK', '          content:', '            application/json:', '              schema: { $ref: "#/components/schemas/Pet" }', '        default: { description: Erreur }', 'components:', '  schemas:', '    Pet:', '      type: object', '      required: [id]', '      properties: { id: { type: integer }, name: { type: string } }'].join('\n')
+      const chooser = await chooseOpenApi(page)
+      await chooser.setFiles({ name: 'pets.yaml', mimeType: 'application/yaml', buffer: Buffer.from(yaml) })
+
+      await expect(nodes(page).filter({ hasText: '/pets' })).toHaveCount(1)
+      await expect(text(page)).toHaveValue(/@title Importée/)
+      await expect(text(page)).toHaveValue(/schema Pet/)
+      await expect(text(page)).toHaveValue(/GET Un animal -> 200 Pet/)
+      expect(dialogs.some((m) => m.includes('Remplacer'))).toBe(true)
+      expect(dialogs.some((m) => m.includes('« default » ignorée'))).toBe(true)
+
+      await page.keyboard.press('Control+z')
+      await expect(text(page)).toHaveValue(before)
+    })
+
+    test('un fichier téléchargé en OpenAPI (YAML) se réimporte à l’identique', async ({ page }) => {
+      page.on('dialog', (d) => d.accept())
+      await open(page)
+      const before = await text(page).inputValue()
+      const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'OpenAPI', exact: true }).click()])
+      const yaml = await readFile((await download.path())!)
+
+      await page.getByRole('button', { name: 'Réinitialiser' }).click()
+      await expect(nodes(page)).toHaveCount(0)
+      const chooser = await chooseOpenApi(page)
+      await chooser.setFiles({ name: 'openapi.yaml', mimeType: 'application/yaml', buffer: yaml })
+      await expect(text(page)).toHaveValue(before)
+    })
+
+    test('un fichier illisible ou Swagger 2 est refusé avec un message clair', async ({ page }) => {
+      const dialogs: string[] = []
+      page.on('dialog', (d) => {
+        dialogs.push(d.message())
+        d.accept()
+      })
+      await open(page)
+      const before = await text(page).inputValue()
+      for (const [name, content] of [['v2.json', '{"swagger":"2.0","paths":{}}'], ['mauvais.yaml', 'a: [1, 2\nb: : :']] as const) {
+        const chooser = await chooseOpenApi(page)
+        await chooser.setFiles({ name, mimeType: 'text/plain', buffer: Buffer.from(content) })
+      }
+      await expect.poll(() => dialogs.length).toBe(2)
+      expect(dialogs[0]).toContain('Swagger 2.0')
+      expect(dialogs[1]).toContain('ni JSON ni YAML')
+      await expect(text(page)).toHaveValue(before) // l'API n'a pas bougé
+    })
+
+    test('importer un OpenAPI par le menu Fichier du MCD indique où l’importer', async ({ page }) => {
+      const dialogs: string[] = []
+      page.on('dialog', (d) => {
+        dialogs.push(d.message())
+        d.accept()
+      })
+      await page.goto('/')
+      await page.locator('input[type=file][accept*=json]').setInputFiles({ name: 'o.json', mimeType: 'application/json', buffer: Buffer.from('{"openapi":"3.0.0","paths":{}}') })
+      await expect.poll(() => dialogs.length).toBe(1)
+      expect(dialogs[0]).toContain('Importer un OpenAPI')
+    })
+
+    test('exporte les types TypeScript et un client fetch', async ({ page }) => {
+      await open(page)
+      const download = await fromFileMenu(page, 'Client TypeScript')
+      expect(download.suggestedFilename()).toBe('api-client.ts')
+      const ts = await readFile((await download.path())!, 'utf-8')
+      expect(ts).toContain('export interface Product {')
+      expect(ts).toContain('export function createClient(')
+      expect(ts).toContain('async getProductsById(args: { id: string })')
+      expect(ts).toContain('Promise<Paginated<Product[]>>')
+    })
+
+    test('la sélection d’une carte n’apparaît pas dans l’image exportée', async ({ page }) => {
+      await open(page)
+      const card = nodes(page).filter({ hasText: '/products' }).first()
+      await card.locator('.font-mono').first().click()
+      const shadow = () => card.locator('> div').evaluate((el) => getComputedStyle(el).boxShadow)
+      expect(await shadow()).toMatch(/0px 0px 0px 2px/) // anneau de sélection
+      await page.locator('.vue-flow').first().evaluate((el) => el.classList.add('exporting')) // état pendant la capture
+      expect(await shadow()).not.toMatch(/0px 0px 0px 2px/)
+    })
+
     test('les exports OpenAPI (YAML et JSON), .http et Markdown se téléchargent', async ({ page }) => {
       await open(page)
-      const grab = async (name: string, file: string) => {
-        const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name, exact: true }).click()])
+      const grab = async (name: string, file: string, menu = true) => {
+        const download = menu
+          ? await fromFileMenu(page, name)
+          : (await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name, exact: true }).click()]))[0]
         expect(download.suggestedFilename()).toBe(file)
         return readFile((await download.path())!, 'utf-8')
       }
-      const yaml = await grab('OpenAPI', 'openapi.yaml')
+      const yaml = await grab('OpenAPI', 'openapi.yaml', false) // bouton principal de l'en-tête
       expect(yaml).toContain('openapi: "3.1.0"')
       expect(yaml).toContain('"/products":')
       expect(yaml).toContain('bearerAuth')
 
-      const json = JSON.parse(await grab('JSON', 'openapi.json'))
+      const json = JSON.parse(await grab('OpenAPI en JSON', 'openapi.json'))
       expect(json.openapi).toBe('3.1.0')
       expect(Object.keys(json.paths)).toEqual(['/products', '/products/{id}', '/orders', '/orders/{id}'])
 
-      expect(await grab('.http', 'requests.http')).toContain('@baseUrl = https://api.boutique.dev')
-      expect(await grab('Markdown', 'api.md')).toContain('### `GET /products` — Lister les produits')
+      expect(await grab('Requêtes .http', 'requests.http')).toContain('@baseUrl = https://api.boutique.dev')
+      expect(await grab('Documentation Markdown', 'api.md')).toContain('### `GET /products` — Lister les produits')
     })
 
     test('génère l’API depuis le MCD ouvert, puis Ctrl+Z la remplace par la précédente', async ({ page }) => {

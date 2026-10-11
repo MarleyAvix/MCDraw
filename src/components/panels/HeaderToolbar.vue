@@ -17,6 +17,7 @@ const { exportJson, importJson, exportImage, exportPdf } = useFileIO()
 
 const types = documentTypes()
 const exampleGroups = () => type.value.exampleGroups.map((g) => ({ ...g, items: type.value.examples.filter((e) => e.category === g.category) }))
+const fileActions = () => (type.value.fileActions ?? []).filter((a) => !a.views || a.views.includes(view.value.id))
 const headerActions = () => type.value.headerActions.filter((a) => !a.views || a.views.includes(view.value.id))
 
 const menu = ref<'examples' | 'file' | null>(null)
@@ -105,6 +106,10 @@ const panel = 'absolute left-0 top-full z-40 mt-1 rounded-md border border-slate
           <button :class="item" @click="run(() => exportImage('png'))"><Image :size="15" /> Image PNG</button>
           <button :class="item" @click="run(() => exportImage('svg'))"><Image :size="15" /> Image SVG</button>
           <button :class="item" @click="run(exportPdf)"><FileText :size="15" /> PDF / Imprimer…</button>
+          <template v-if="fileActions().length">
+            <hr class="my-1 border-slate-200" />
+            <button v-for="a in fileActions()" :key="a.id" :class="item" :title="a.title" @click="run(() => a.run(ctx()))"><component :is="a.icon" :size="15" /> {{ a.label }}</button>
+          </template>
         </div>
         <input ref="fileInput" type="file" accept="application/json,.json" class="hidden" @change="onFile" />
       </div>

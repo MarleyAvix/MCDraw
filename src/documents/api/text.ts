@@ -57,7 +57,8 @@ function splitNote(body: string): [string, string | undefined] {
   return [body.slice(0, m.index).trim(), body.slice(m.index + m[0].length).trim() || undefined]
 }
 
-const NAME = /^([A-Za-z_][\w.-]*)\s*:\s*(.+)$/
+/** Nom d'un champ ou d'un paramètre ; les crochets et points servent aux requêtes de type `filter[status]`. */
+const NAME = /^([A-Za-z_][\w.[\]-]*)\s*:\s*(.+)$/
 
 /** `type` ou `type?` → type normalisé et caractère facultatif ; `null` si le type est invalide. */
 function readType(src: string): { type: string; optional: boolean } | null {

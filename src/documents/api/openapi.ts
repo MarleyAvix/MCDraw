@@ -45,10 +45,11 @@ const SECURITY: Record<AuthScheme, { name: string; scheme: Json }> = {
   basic: { name: 'basicAuth', scheme: { type: 'http', scheme: 'basic' } },
 }
 
-const cap = (s: string) => s.replace(/(^|[-_])(\w)/g, (_, __, c: string) => c.toUpperCase())
+/** `user-id` → `UserId` : un identifiant valable en TypeScript comme en operationId. */
+const cap = (s: string) => s.replace(/(^|[^A-Za-z0-9]+)([A-Za-z0-9])/g, (_, __, c: string) => c.toUpperCase()).replace(/[^A-Za-z0-9]/g, '')
 
 /** `getUsers`, `getUsersById`, `createUsers`… : unique dans tout le document. */
-function operationIds(endpoints: ApiEndpoint[]): Map<string, string> {
+export function operationIds(endpoints: ApiEndpoint[]): Map<string, string> {
   const out = new Map<string, string>()
   const taken = new Set<string>()
   for (const e of endpoints) {

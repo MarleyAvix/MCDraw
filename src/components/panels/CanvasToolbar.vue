@@ -19,7 +19,7 @@ const btn = 'inline-flex items-center gap-1.5 whitespace-nowrap rounded-md borde
 </script>
 
 <template>
-  <div class="absolute bottom-4 left-16 z-10 flex items-center gap-2 rounded-lg bg-surface/80 p-2 shadow-lg backdrop-blur-sm border border-slate-200">
+  <div class="absolute bottom-4 left-16 z-10 flex max-w-[calc(100%-5rem)] flex-wrap items-center gap-2 rounded-lg bg-surface/80 p-2 shadow-lg backdrop-blur-sm border border-slate-200">
     <template v-for="(g, i) in groups" :key="g.id">
       <span v-if="i > 0" class="mx-1 h-6 w-px bg-slate-200" />
       <template v-if="g.history">

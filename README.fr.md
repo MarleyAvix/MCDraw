@@ -32,7 +32,7 @@ Un outil de diagrammes léger et rapide, dans le navigateur : des modèles conce
 | **Base de données** (Merise) | Éditeur de MCD avec cardinalités, identifiant relatif (CIF), héritage → **MLD** calculé, vues **ERD** (pattes de corbeau) et **UML** (diagramme de classes) |
 | **Plan de site** | Saisissez vos pages en liste indentée *ou* dessinez l'arbre — les deux restent synchronisés. Export d'une liste **Markdown** ou d'un **`sitemap.xml`** (sitemaps.org) |
 | **Carte mentale** | Jetez vos idées en liste indentée ou faites pousser les branches sur la carte. Mise en page équilibrée autour de l'idée centrale, une couleur par branche, branches repliables. Export **Markdown** ou **OPML** (XMind, MindNode, OmniOutliner…) |
-| **API REST** | Décrivez ressources et routes (paramètres, en-têtes, corps, réponses, pagination, authentification) en texte ou sur l'arbre des routes ; un linter de conception vérifie les noms et les codes HTTP. Export **OpenAPI 3.1** (YAML / JSON), fichier de requêtes **`.http`** ou documentation **Markdown** — ou génération du CRUD directement depuis votre MCD |
+| **API REST** | Décrivez ressources et routes (paramètres, en-têtes, corps, réponses, pagination, authentification) en texte ou sur l'arbre des routes ; un linter de conception vérifie les noms et les codes HTTP. Export **OpenAPI 3.1** (YAML / JSON), **client TypeScript** typé, fichier de requêtes **`.http`** ou documentation **Markdown** — import d'un fichier OpenAPI existant, ou génération du CRUD directement depuis votre MCD |
 
 <table>
   <tr>
@@ -84,7 +84,8 @@ Un outil de diagrammes léger et rapide, dans le navigateur : des modèles conce
 - Deux vues : l'**arbre des routes** (une carte par chemin, pastilles de méthodes colorées, cadenas pour les routes protégées, boutons **Monter / Descendre** pour réordonner chemins et méthodes) et les **schémas** (cartes reliées par leurs références, avec l'usage de chacun).
 - **Linter de conception** (23 règles) : routes en double, schémas inconnus, verbes ou majuscules dans les chemins, collections au singulier, `404` / `400` / `401` manquants, `POST` sans `201`, listes non paginées, routes d'écriture publiques… Un clic sur une remarque mène à la route.
 - **Génération depuis le MCD** : une ressource et son schéma d'entrée par entité, les cinq routes CRUD, les listes imbriquées des relations 1–n, les routes de rattachement des associations n–n et les chemins imbriqués des identifiants relatifs (CIF). Annulable.
-- Exports : **OpenAPI 3.1** (YAML et JSON), fichier **`.http`** (REST Client de VS Code, JetBrains) avec corps d'exemple, documentation **Markdown**. Trois modèles de départ orientés développement (boutique, tâches, authentification).
+- **Import d'un fichier OpenAPI 3 existant** (JSON ou YAML) : schémas, `allOf`, types nullables, paramètres, corps, réponses et sécurité sont convertis ; ce qui ne se représente pas (`oneOf`, objets libres, réponses `default`…) est simplifié et listé dans un compte rendu.
+- Exports : **OpenAPI 3.1** (YAML et JSON), **client TypeScript** (`api-client.ts` : interfaces et client `fetch` typé sans dépendance, avec authentification, pagination et `ApiError`), fichier **`.http`** (REST Client de VS Code, JetBrains) avec corps d'exemple, documentation **Markdown**. Trois modèles de départ orientés développement (boutique, tâches, authentification).
 
 ### Partout
 
@@ -138,7 +139,7 @@ L'application est alors servie par nginx sur <http://localhost:8080>.
 
 ## Pile technique
 
-[Vue 3](https://vuejs.org/) · TypeScript · [Pinia](https://pinia.vuejs.org/) · [Vue Flow](https://vueflow.dev/) · Tailwind CSS v4 · Vite · Vitest · Playwright · icônes [lucide](https://lucide.dev/) · [`@faker-js/faker`](https://fakerjs.dev/).
+[Vue 3](https://vuejs.org/) · TypeScript · [Pinia](https://pinia.vuejs.org/) · [Vue Flow](https://vueflow.dev/) · Tailwind CSS v4 · Vite · Vitest · Playwright · icônes [lucide](https://lucide.dev/) · [`@faker-js/faker`](https://fakerjs.dev/) · [`yaml`](https://eemeli.org/yaml/) (chargé uniquement à l'import d'un fichier OpenAPI).
 
 ## Architecture : ajouter un type de diagramme
 

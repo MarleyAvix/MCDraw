@@ -1,6 +1,6 @@
 import { computed, toRef, type Ref } from 'vue'
 import { useVueFlow } from '@vue-flow/core'
-import { ArrowDown, ArrowUp, Braces, Database, FileCode, FileJson, FileText, FolderPlus, Info, Maximize2, Plus, RotateCcw, Terminal, TextCursorInput, Webhook } from 'lucide-vue-next'
+import { ArrowDown, ArrowUp, Braces, Code, Database, FileCode, FileJson, FileText, FileUp, FolderPlus, Info, Maximize2, Plus, RotateCcw, Terminal, TextCursorInput, Webhook } from 'lucide-vue-next'
 import { getDocumentType, type ActionContext, type DocumentApi, type DocumentType } from '../../core/documentType'
 import { downloadBlob } from '../../composables/useFileIO'
 import type { MeriseSchema } from '../../types/schema'
@@ -9,6 +9,8 @@ import { apiFromMcd } from './fromMcd'
 import { apiToHttpFile } from './httpFile'
 import { apiToMarkdown } from './markdown'
 import { openApiToJson, openApiToYaml } from './openapi'
+import { openApiToApi, parseOpenApiSource } from './importOpenApi'
+import { apiToTypeScript } from './typescript'
 import type { ApiDocument } from './model'
 import { ROOT_PATH } from './pathTree'
 import ApiRoutesCanvas from './ApiRoutesCanvas.vue'
@@ -75,6 +77,35 @@ function generateFromMcd() {
   s.load({ ...api, info: { ...api.info, ...(s.doc.info.title ? { title: s.doc.info.title } : {}) } })
   s.view = 'routes'
   if (notes.length) alert(`API générée. À noter :\n\n- ${notes.join('\n- ')}`)
+}
+
+/** Choisit un fichier OpenAPI (JSON ou YAML) et remplace l'API par son contenu (annulable avec Ctrl+Z). */
+function importOpenApi() {
+  const input = Object.assign(document.createElement('input'), { type: 'file', accept: '.json,.yaml,.yml,application/json,application/yaml,text/yaml' })
+  input.hidden = true
+  document.body.append(input)
+  input.addEventListener('cancel', () => input.remove(), { once: true })
+  input.addEventListener(
+    'change',
+    async () => {
+      const file = input.files?.[0]
+      input.remove()
+      if (!file) return
+      try {
+        const { api, notes } = openApiToApi(await parseOpenApiSource(await file.text()), () => Math.random().toString(36).slice(2, 10))
+        const s = useApiStore()
+        if (s.endpoints.length && !confirm('Remplacer l’API actuelle par le contenu de ce fichier OpenAPI ? (Ctrl+Z pour annuler)')) return
+        s.load(api)
+        s.view = 'routes'
+        setTimeout(() => useVueFlow('api-routes').fitView({ padding: 0.2 }), 50)
+        if (notes.length) alert(`Fichier importé. À noter :\n\n- ${notes.join('\n- ')}`)
+      } catch (e) {
+        alert(e instanceof Error ? e.message : 'Impossible de lire ce fichier OpenAPI.')
+      }
+    },
+    { once: true },
+  )
+  input.click()
 }
 
 export const apiDocument: DocumentType<ApiDocument> = {
@@ -154,12 +185,17 @@ export const apiDocument: DocumentType<ApiDocument> = {
     },
   ],
 
-  // L'API décrite sert ensuite ailleurs : OpenAPI pour Swagger / Postman / générateurs, .http pour tester, Markdown pour la doc.
+  // L'API décrite sert ensuite ailleurs : OpenAPI pour Swagger / Postman / générateurs (bouton principal) ; le reste dans « Fichier ».
   headerActions: [
-    { id: 'markdown', label: 'Markdown', compact: true, title: 'Exporter la documentation en Markdown', icon: FileText, run: () => downloadBlob(apiToMarkdown(useApiStore().schema), 'text/markdown', 'api.md') },
-    { id: 'http', label: '.http', compact: true, title: 'Exporter un fichier de requêtes .http (VS Code REST Client, JetBrains)', icon: Terminal, run: () => downloadBlob(apiToHttpFile(useApiStore().schema), 'text/plain', 'requests.http') },
-    { id: 'json', label: 'JSON', compact: true, title: 'Exporter un OpenAPI 3.1 en JSON', icon: FileJson, run: () => downloadBlob(openApiToJson(useApiStore().schema), 'application/json', 'openapi.json') },
     { id: 'openapi', label: 'OpenAPI', title: 'Exporter un OpenAPI 3.1 en YAML (Swagger, Postman, générateurs de clients)', icon: FileCode, primary: true, run: () => downloadBlob(openApiToYaml(useApiStore().schema), 'application/yaml', 'openapi.yaml') },
+  ],
+
+  fileActions: [
+    { id: 'import', label: 'Importer un OpenAPI…', title: 'Remplacer l’API par un fichier OpenAPI 3 existant (JSON ou YAML)', icon: FileUp, run: importOpenApi },
+    { id: 'json', label: 'OpenAPI en JSON', title: 'Exporter un OpenAPI 3.1 en JSON', icon: FileJson, run: () => downloadBlob(openApiToJson(useApiStore().schema), 'application/json', 'openapi.json') },
+    { id: 'typescript', label: 'Client TypeScript', title: 'Exporter les types et un client fetch typé (api-client.ts)', icon: Code, run: () => downloadBlob(apiToTypeScript(useApiStore().schema), 'text/plain', 'api-client.ts') },
+    { id: 'http', label: 'Requêtes .http', title: 'Exporter un fichier de requêtes .http (VS Code REST Client, JetBrains)', icon: Terminal, run: () => downloadBlob(apiToHttpFile(useApiStore().schema), 'text/plain', 'requests.http') },
+    { id: 'markdown', label: 'Documentation Markdown', title: 'Exporter la documentation en Markdown', icon: FileText, run: () => downloadBlob(apiToMarkdown(useApiStore().schema), 'text/markdown', 'api.md') },
   ],
 
   shortcuts: [

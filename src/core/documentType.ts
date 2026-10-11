@@ -157,6 +157,8 @@ export interface DocumentType<S = unknown> {
   actions: DocumentAction<S>[]
   /** Entrées de l'en-tête propres au type (ex : import / export SQL). */
   headerActions: DocumentAction<S>[]
+  /** Entrées du menu « Fichier » propres au type : exports secondaires, imports d'autres formats. */
+  fileActions?: DocumentAction<S>[]
   shortcuts: DocumentShortcut<S>[]
 }
 

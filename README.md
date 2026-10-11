@@ -32,7 +32,7 @@ A light, fast, in-browser diagramming tool: Merise conceptual models (MCD) that 
 | **Database** (Merise) | MCD editor with cardinalities, relative identifiers (CIF), inheritance → computed **MLD**, **ERD** (crow's foot) and **UML** class views |
 | **Site map** | Type your pages as an indented list *or* draw the tree — both stay in sync. Export a **Markdown** list or a **`sitemap.xml`** (sitemaps.org) |
 | **Mind map** | Jot ideas as an indented list or grow the branches on the map. Balanced layout around the central idea, one colour per branch, collapsible branches. Export **Markdown** or **OPML** (XMind, MindNode, OmniOutliner…) |
-| **REST API** | Describe resources and routes (parameters, headers, body, responses, pagination, auth) as text or on the route tree; a design linter checks naming and HTTP codes. Export **OpenAPI 3.1** (YAML / JSON), a **`.http`** request file or **Markdown** docs — or generate the CRUD straight from your MCD |
+| **REST API** | Describe resources and routes (parameters, headers, body, responses, pagination, auth) as text or on the route tree; a design linter checks naming and HTTP codes. Export **OpenAPI 3.1** (YAML / JSON), a typed **TypeScript client**, a **`.http`** request file or **Markdown** docs — import an existing OpenAPI file, or generate the CRUD straight from your MCD |
 
 <table>
   <tr>
@@ -84,7 +84,8 @@ A light, fast, in-browser diagramming tool: Merise conceptual models (MCD) that 
 - Two views: the **route tree** (one card per path, coloured method badges, lock for protected routes, **Up / Down** buttons to reorder paths and methods) and the **schemas** (cards linked by their references, with where each one is used).
 - **Design linter** (23 rules): duplicate routes, unknown schemas, verbs or capitals in paths, singular collections, missing `404` / `400` / `401`, `POST` without `201`, lists without pagination, public write routes… Click a remark to jump to the route.
 - **Generate from your MCD**: one resource and input schema per entity, the five CRUD routes, nested lists for 1–n relations, attach / detach routes for n–n associations and nested paths for relative identifiers (CIF). Undoable.
-- Exports: **OpenAPI 3.1** (YAML and JSON), **`.http`** file (VS Code REST Client, JetBrains) with sample bodies, **Markdown** documentation. Three developer-oriented starter templates (shop, tasks, authentication).
+- **Import an existing OpenAPI 3** file (JSON or YAML): schemas, `allOf`, nullable types, parameters, bodies, responses and security are converted; what cannot be represented (`oneOf`, free-form objects, `default` responses…) is simplified and listed in a report.
+- Exports: **OpenAPI 3.1** (YAML and JSON), a **TypeScript client** (`api-client.ts`: interfaces plus a dependency-free, typed `fetch` client with auth, pagination and `ApiError`), a **`.http`** file (VS Code REST Client, JetBrains) with sample bodies, **Markdown** documentation. Three developer-oriented starter templates (shop, tasks, authentication).
 
 ### Everywhere
 
@@ -138,7 +139,7 @@ The app is then served by nginx on <http://localhost:8080>.
 
 ## Tech stack
 
-[Vue 3](https://vuejs.org/) · TypeScript · [Pinia](https://pinia.vuejs.org/) · [Vue Flow](https://vueflow.dev/) · Tailwind CSS v4 · Vite · Vitest · Playwright · [lucide](https://lucide.dev/) icons · [`@faker-js/faker`](https://fakerjs.dev/).
+[Vue 3](https://vuejs.org/) · TypeScript · [Pinia](https://pinia.vuejs.org/) · [Vue Flow](https://vueflow.dev/) · Tailwind CSS v4 · Vite · Vitest · Playwright · [lucide](https://lucide.dev/) icons · [`@faker-js/faker`](https://fakerjs.dev/) · [`yaml`](https://eemeli.org/yaml/) (loaded only when importing an OpenAPI file).
 
 ## Architecture: adding a new diagram type
 

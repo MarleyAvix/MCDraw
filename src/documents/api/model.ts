@@ -150,7 +150,7 @@ export function isParamType(type: string): boolean {
 
 // --- Chemins ---------------------------------------------------------------------
 
-const PLACEHOLDER = /^\{([A-Za-z_]\w*)(?::([^{}]+))?\}$/
+const PLACEHOLDER = /^\{([A-Za-z_][\w.-]*)(?::([^{}]+))?\}$/
 
 /**
  * Normalise un chemin saisi : `/users/{id:uuid}/` → `/users/{id}`, avec les types annoncés (`{ id: 'uuid' }`).
