@@ -66,6 +66,23 @@ export function depths(pages: SitemapPage[]): Map<string, number> {
   return out
 }
 
+/**
+ * Échange la page avec sa sœur précédente (`dir` -1) ou suivante (+1). L'ordre des sœurs est celui du tableau :
+ * échanger les deux entrées suffit, les sous-pages suivent leur mère. Renvoie `null` s'il n'y a pas de sœur de ce côté.
+ */
+export function movePage(pages: SitemapPage[], id: string, dir: -1 | 1): SitemapPage[] | null {
+  const page = pages.find((p) => p.id === id)
+  if (!page) return null
+  const sibs = pages.filter((p) => (p.parentId ?? undefined) === (page.parentId ?? undefined))
+  const other = sibs[sibs.indexOf(page) + dir]
+  if (!other) return null
+  const next = [...pages]
+  const [i, j] = [pages.indexOf(page), pages.indexOf(other)]
+  next[i] = other
+  next[j] = page
+  return next
+}
+
 /** Parcours en profondeur dans l'ordre d'affichage. */
 export function walk(pages: SitemapPage[]): { page: SitemapPage; depth: number }[] {
   const out: { page: SitemapPage; depth: number }[] = []

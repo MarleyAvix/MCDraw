@@ -3,7 +3,7 @@ import { defineStore } from 'pinia'
 import type { Edge, Node } from '@vue-flow/core'
 import { useHistory } from '../../composables/useHistory'
 import { usePersistence } from '../../composables/usePersistence'
-import { childrenOf, depths, emptySitemap, layoutTree, parseSitemapText, sanitizeSitemap, subtreeIds, type SitemapPage, type SitemapSchema } from './engine'
+import { childrenOf, depths, emptySitemap, layoutTree, movePage, parseSitemapText, sanitizeSitemap, subtreeIds, type SitemapPage, type SitemapSchema } from './engine'
 
 const STORAGE_KEY = 'mcdraw:sitemap:v1'
 const uid = () => Math.random().toString(36).slice(2, 10)
@@ -140,6 +140,14 @@ export const useSitemapStore = defineStore('sitemap', () => {
     }
   }
 
+  /** Décale la page d'un rang parmi ses sœurs (vers la gauche : -1, vers la droite : +1). */
+  function movePageBy(id: string, dir: -1 | 1): boolean {
+    const next = movePage(pages.value, id, dir)
+    if (next) pages.value = next
+    return !!next
+  }
+  const canMove = (id: string | undefined, dir: -1 | 1) => !!id && !!movePage(pages.value, id, dir)
+
   /** Supprime les pages et tout ce qui est en dessous. */
   function removePages(ids: string[]) {
     const gone = new Set(ids.flatMap((id) => [...subtreeIds(pages.value, id)]))
@@ -222,7 +230,7 @@ export const useSitemapStore = defineStore('sitemap', () => {
 
   return {
     pages, selection, editingPageId, showTextPanel, highlightId, view, schema, nodes, edges, byId,
-    flash, addPage, addSibling, updatePage, removePages, copy, paste, pasteUnder, duplicate, load, importSchema, reset, loadExample,
+    flash, addPage, addSibling, movePageBy, canMove, updatePage, removePages, copy, paste, pasteUnder, duplicate, load, importSchema, reset, loadExample,
     undo, redo, canUndo, canRedo, childrenOf: (id: string) => childrenOf(pages.value, id),
   }
 })

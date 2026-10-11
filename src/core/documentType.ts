@@ -138,6 +138,8 @@ export interface DocumentType<S = unknown> {
   icon: Component
   /** Nom du fichier JSON exporté, sans extension. */
   fileName: string
+  /** Reconnaît, sans rien charger, des données JSON de ce type (forme générale seulement) : sert à orienter un fichier importé. */
+  accepts(raw: unknown): boolean
 
   useDocument(): DocumentApi<S>
   examples: DocumentExample[]
@@ -163,3 +165,10 @@ export function registerDocumentType<S>(type: DocumentType<S>) {
 
 export const documentTypes = (): DocumentType<any>[] => [...registry.values()]
 export const getDocumentType = (id: string): DocumentType<any> | undefined => registry.get(id)
+
+/** Premier type enregistré qui reconnaît ces données, en commençant par `preferredId` ; `undefined` si aucun. */
+export function detectDocumentType(raw: unknown, preferredId?: string): DocumentType<any> | undefined {
+  const all = documentTypes()
+  const first = all.filter((t) => t.id === preferredId)
+  return [...first, ...all.filter((t) => t.id !== preferredId)].find((t) => t.accepts(raw))
+}

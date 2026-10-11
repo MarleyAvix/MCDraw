@@ -2,6 +2,8 @@ import { nextTick } from 'vue'
 import { getRectOfNodes, useVueFlow } from '@vue-flow/core'
 import { toPng, toSvg } from 'html-to-image'
 import { useActiveDocument } from '../core/useActiveDocument'
+import { useDocumentStore } from '../core/documentStore'
+import { detectDocumentType } from '../core/documentType'
 
 function download(href: string, filename: string) {
   const a = Object.assign(document.createElement('a'), { href, download: filename })
@@ -35,13 +37,23 @@ function inlineSvgStyles(root: HTMLElement) {
 /** Export / import du projet (JSON) et export du canvas en image (PNG / SVG). */
 export function useFileIO() {
   const { type, doc, view } = useActiveDocument()
+  const store = useDocumentStore()
   const active = () => useVueFlow(view.value.flowId)
 
   const exportJson = () => downloadBlob(JSON.stringify(doc.value.schema.value, null, 2), 'application/json', `${type.value.fileName}.json`)
 
   async function importJson(file: File) {
     try {
-      doc.value.importRaw(JSON.parse(await file.text()))
+      const raw = JSON.parse(await file.text())
+      // Un fichier d'un autre type (un plan de site dans un MCD, ou l'inverse) : on propose de basculer plutôt que d'échouer.
+      if (!type.value.accepts(raw)) {
+        const other = detectDocumentType(raw, type.value.id)
+        if (!other) return alert('Ce fichier JSON ne correspond à aucun type de diagramme connu.')
+        if (!confirm(`Ce fichier est de type « ${other.label} ». Basculer vers ce type et l'ouvrir ?`)) return
+        store.select(other.id)
+        await nextTick()
+      }
+      doc.value.importRaw(raw)
       await nextTick()
       setTimeout(() => active().fitView({ padding: 0.2 }), 50)
     } catch (e) {

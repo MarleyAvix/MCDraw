@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { nextTick } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
-import { documentTypes, getDocumentType } from '../documentType'
+import { detectDocumentType, documentTypes, getDocumentType } from '../documentType'
 import { useDocumentStore } from '../documentStore'
 import { registerDocuments } from '../../documents'
 
@@ -57,6 +57,30 @@ describe('registre des types de document', () => {
     expect(doc.schema.value).not.toEqual(empty) // l'historique est branché
     doc.redo()
     expect(doc.schema.value).toEqual(empty)
+  })
+})
+
+describe('détection du type d’un fichier importé', () => {
+  const mcd = { entities: [], relations: [], links: [] }
+  const plan = { pages: [] }
+
+  it('chaque type reconnaît ses données et pas celles des autres', () => {
+    expect(getDocumentType('mcd')!.accepts(mcd)).toBe(true)
+    expect(getDocumentType('mcd')!.accepts(plan)).toBe(false)
+    expect(getDocumentType('sitemap')!.accepts(plan)).toBe(true)
+    expect(getDocumentType('sitemap')!.accepts(mcd)).toBe(false)
+  })
+
+  it('refuse ce qui n’a pas la forme d’un objet', () => {
+    for (const bad of [null, undefined, 'texte', 42, [], { pages: 'non' }]) {
+      for (const t of documentTypes()) expect(t.accepts(bad)).toBe(false)
+    }
+  })
+
+  it('detectDocumentType trouve le bon type, ou aucun', () => {
+    expect(detectDocumentType(plan, 'mcd')?.id).toBe('sitemap')
+    expect(detectDocumentType(mcd, 'sitemap')?.id).toBe('mcd')
+    expect(detectDocumentType({ autre: 1 })).toBeUndefined()
   })
 })
 
