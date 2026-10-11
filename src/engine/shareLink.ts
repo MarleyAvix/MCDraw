@@ -4,6 +4,7 @@
  * backend ni stockage n'est nécessaire, le lien contient tout le diagramme.
  */
 export const SHARE_PARAM = 'share'
+const DEFAULT_SHARE_TYPE = 'mcd'
 /** Au-delà, certains navigateurs / messageries tronquent ou refusent l'URL. */
 export const SHARE_SOFT_LIMIT = 8000
 /** Garde-fou contre une « bombe de décompression » dans un lien malveillant. */
@@ -63,10 +64,18 @@ export async function decodeShare(payload: string): Promise<unknown> {
   }
 }
 
-export async function buildShareUrl(schema: unknown, base: string): Promise<string> {
+/** Le MCD garde le fragment historique `#share=…` (les anciens liens restent valides) ; les autres types : `#share.<type>=…`. */
+export async function buildShareUrl(schema: unknown, base: string, type = DEFAULT_SHARE_TYPE): Promise<string> {
   const u = new URL(base)
-  u.hash = `${SHARE_PARAM}=${await encodeShare(schema)}`
+  const param = type === DEFAULT_SHARE_TYPE ? SHARE_PARAM : `${SHARE_PARAM}.${type}`
+  u.hash = `${param}=${await encodeShare(schema)}`
   return u.toString()
+}
+
+/** Extrait le type de document et la charge utile d'un fragment d'URL, ou null s'il n'y en a pas. */
+export function readShare(hash: string): { type: string; payload: string } | null {
+  const m = new RegExp(`^#${SHARE_PARAM}(?:\\.([a-z][a-z0-9-]*))?=([A-Za-z0-9_-]+)$`).exec(hash)
+  return m ? { type: m[1] ?? DEFAULT_SHARE_TYPE, payload: m[2] } : null
 }
 
 /** Extrait la charge utile d'un fragment d'URL (`#share=…`), ou null s'il n'y en a pas. */

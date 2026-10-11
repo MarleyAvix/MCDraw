@@ -1,6 +1,8 @@
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import type { Edge, Node } from '@vue-flow/core'
+import { useHistory } from '../composables/useHistory'
+import { usePersistence } from '../composables/usePersistence'
 import { meriseToMld, normalizeSize, slug, sqlServerCascadeWarnings } from '../engine/meriseToMld'
 import { mldToSql, type SqlDialect } from '../engine/mldToSql'
 import { rootOf } from '../engine/inheritance'
@@ -183,9 +185,6 @@ export const useSchemaStore = defineStore('schema', () => {
   const editingRelationId = ref<string | null>(null)
   const showSqlModal = ref(false)
   const showSqlImportModal = ref(false)
-  const showShortcutsModal = ref(false)
-  const showShareModal = ref(false)
-  const showThemeModal = ref(false)
   const showTextPanel = ref(false)
   const selection = ref<string[]>([])
   const view = ref<ViewMode>('mcd')
@@ -555,61 +554,13 @@ export const useSchemaStore = defineStore('schema', () => {
     load(EXAMPLES[0].build())
   }
 
-  // --- Historique (annuler / rétablir) par instantanés JSON -----------
-  const HISTORY_MAX = 100
-  const past = ref<string[]>([])
-  const future = ref<string[]>([])
-  const COALESCE_MS = 600
-  let lastChange = 0
-  let present = JSON.stringify(schema.value)
-  const canUndo = computed(() => past.value.length > 0)
-  const canRedo = computed(() => future.value.length > 0)
-
-  watch(
-    schema,
-    (s) => {
-      const snap = JSON.stringify(s)
-      try {
-        localStorage.setItem(STORAGE_KEY, snap)
-      } catch {
-        /* stockage indisponible : on ignore */
-      }
-      if (snap === present) return
-      // Les modifications rapprochées (saisie au clavier…) ne forment qu'une seule étape.
-      const now = Date.now()
-      const grouped = past.value.length > 0 && now - lastChange < COALESCE_MS
-      lastChange = now
-      if (!grouped) {
-        past.value.push(present)
-        if (past.value.length > HISTORY_MAX) past.value.shift()
-      }
-      future.value = []
-      present = snap
-    },
-    { deep: true },
-  )
-
-  function undo() {
-    const prev = past.value.pop()
-    if (prev === undefined) return
-    future.value.push(present)
-    present = prev
-    lastChange = 0
-    load(JSON.parse(prev))
-  }
-
-  function redo() {
-    const next = future.value.pop()
-    if (next === undefined) return
-    past.value.push(present)
-    present = next
-    lastChange = 0
-    load(JSON.parse(next))
-  }
+  // --- Sauvegarde et historique (annuler / rétablir), créés une fois le schéma initial chargé ---
+  usePersistence(schema, STORAGE_KEY)
+  const { undo, redo, canUndo, canRedo } = useHistory({ state: schema, load })
 
   return {
     entities, relations, links,
-    editingEntityId, editingRelationId, showSqlModal, showSqlImportModal, showShortcutsModal, showShareModal, showThemeModal, showTextPanel, selection, view, mldRelayout, highlightId, flash, copyNodes, paste, duplicateNodes, sqlOptions, canUndo, canRedo,
+    editingEntityId, editingRelationId, showSqlModal, showSqlImportModal, showTextPanel, selection, view, mldRelayout, highlightId, flash, copyNodes, paste, duplicateNodes, sqlOptions, canUndo, canRedo,
     schema, issues, weakEntityIds, mld, sql, dialectWarnings, mldWarnings, nodes, edges,
     addEntity, addRelation, addRelationBetween, updateEntity, setParent, setInheritance, inheritanceRoot, childrenOfEntity, updateRelation, addAttribute, updateAttribute, removeAttribute, moveAttribute, removeNode, moveNode, moveNodes, rerouteLinks,
     addLink, updateLink, removeLink, reset, loadExample, importSchema, undo, redo,

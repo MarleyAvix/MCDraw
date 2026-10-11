@@ -1,74 +1,55 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { useSpawnPoint } from './composables/useSpawnPoint'
-import { Database } from 'lucide-vue-next'
-import { useSchemaStore } from './stores/schemaStore'
-import FlowCanvas from './components/canvas/FlowCanvas.vue'
-import MldDiagram from './components/canvas/MldDiagram.vue'
-import DerivedDiagram from './components/canvas/DerivedDiagram.vue'
+import { computed, onMounted, onUnmounted } from 'vue'
+import { useDocumentStore } from './core/documentStore'
+import { useActiveDocument } from './core/useActiveDocument'
+import { initPanels, isPanelOpen, togglePanel } from './core/panelState'
 import SearchBox from './components/panels/SearchBox.vue'
 import HeaderToolbar from './components/panels/HeaderToolbar.vue'
 import CanvasToolbar from './components/panels/CanvasToolbar.vue'
-import TextPanel from './components/panels/TextPanel.vue'
-import LintPanel from './components/panels/LintPanel.vue'
-import MldPanel from './components/panels/MldPanel.vue'
-import SqlExportModal from './components/panels/SqlExportModal.vue'
-import SqlImportModal from './components/panels/SqlImportModal.vue'
 import ShareModal from './components/panels/ShareModal.vue'
 import ThemeModal from './components/panels/ThemeModal.vue'
-import { useShareLink } from './composables/useShareLink'
-import EditEntityModal from './components/modals/EditEntityModal.vue'
-import EditRelationModal from './components/modals/EditRelationModal.vue'
 import ShortcutsModal from './components/modals/ShortcutsModal.vue'
+import { useShareLink } from './composables/useShareLink'
 
-const store = useSchemaStore()
-const spawnPoint = useSpawnPoint()
+const store = useDocumentStore()
+const { type, doc, view, ctx } = useActiveDocument()
+initPanels()
 
-// Panneau MLD repliable : le choix est mémorisé ; sans choix, replié sur écran étroit.
-const MLD_KEY = 'mcdraw.mldOpen'
-function initialMldOpen(): boolean {
-  try {
-    const v = localStorage.getItem(MLD_KEY)
-    if (v !== null) return v === '1'
-  } catch {
-    /* stockage indisponible */
-  }
-  return window.innerWidth >= 1024
-}
-const mldOpen = ref(initialMldOpen())
-// Le panneau de saisie texte appartient à la vue MCD.
-const textOpen = computed(() => store.showTextPanel && store.view === 'mcd')
-function toggleMld() {
-  mldOpen.value = !mldOpen.value
-  try {
-    localStorage.setItem(MLD_KEY, mldOpen.value ? '1' : '0')
-  } catch {
-    /* stockage indisponible */
-  }
-}
+// Panneaux du type actif, par emplacement (un panneau repliable ne garde que sa bande de 40 px quand il est fermé).
+const panels = (side: 'left' | 'right' | 'canvas') => type.value.panels.filter((p) => p.side === side && p.visible(view.value.id))
+const columns = computed(() =>
+  [
+    ...panels('left').map((p) => `${p.width ?? 340}px`),
+    '1fr',
+    ...panels('right').map((p) => (p.collapsible && !isPanelOpen(p.collapsible.storageKey) ? '40px' : `${p.width ?? 340}px`)),
+  ].join(' '),
+)
+const panelProps = (p: ReturnType<typeof panels>[number]) =>
+  p.collapsible ? { open: isPanelOpen(p.collapsible.storageKey), onToggle: () => togglePanel(p.collapsible!.storageKey) } : {}
 
-// Raccourcis (hors champs de saisie) : N entité, A association, Ctrl+Z/Y annuler/rétablir, Ctrl+A tout sélectionner, Ctrl+C/V/D copier/coller/dupliquer.
+// Raccourcis (hors champs de saisie, dans une vue d'édition) : les touches du type, puis Ctrl+Z/Y annuler/rétablir,
+// Ctrl+A tout sélectionner, Ctrl+C/V/D copier/coller/dupliquer.
 function onKey(e: KeyboardEvent) {
   const t = e.target as HTMLElement | null
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return
-  if (store.view !== 'mcd') return
+  if (!view.value.editable) return
   if (document.querySelector('[role="dialog"], .fixed.inset-0')) return // modale ouverte
   const k = e.key.toLowerCase()
+  const d = doc.value
   if (!(e.ctrlKey || e.metaKey)) {
     if (e.altKey || e.shiftKey) return
-    const p = spawnPoint()
-    if (k === 'n') store.addEntity(p.x, p.y)
-    else if (k === 'a') store.addRelation(p.x, p.y)
-    else return
+    const s = type.value.shortcuts.find((x) => x.key === k)
+    if (!s) return
+    s.run(ctx())
     e.preventDefault()
     return
   }
-  if (k === 'z' && !e.shiftKey) store.undo()
-  else if (k === 'y' || (k === 'z' && e.shiftKey)) store.redo()
-  else if (k === 'a') store.selection = [...store.entities, ...store.relations].map((n) => n.id)
-  else if (k === 'c') store.copyNodes(store.selection)
-  else if (k === 'v') store.paste()
-  else if (k === 'd') store.duplicateNodes(store.selection)
+  if (k === 'z' && !e.shiftKey) d.undo()
+  else if (k === 'y' || (k === 'z' && e.shiftKey)) d.redo()
+  else if (k === 'a') d.selectAll()
+  else if (k === 'c') d.copy()
+  else if (k === 'v') d.paste()
+  else if (k === 'd') d.duplicate()
   else return
   e.preventDefault()
 }
@@ -81,35 +62,29 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
   <div class="flex h-full flex-col">
     <header class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-slate-200 bg-surface px-4 py-2.5">
       <div class="flex items-center gap-2">
-        <Database :size="22" class="text-indigo-600" />
+        <component :is="type.icon" :size="22" class="text-indigo-600" />
         <div class="leading-tight">
           <h1 class="text-base font-bold">MCDraw</h1>
-          <p class="text-xs text-slate-500">Concevez vos MCD, exportez vos MLD en un clic.</p>
+          <p class="text-xs text-slate-500">{{ type.tagline }}</p>
         </div>
       </div>
       <HeaderToolbar />
     </header>
 
-    <main
-      class="grid min-h-0 flex-1"
-      :class="[textOpen ? (mldOpen ? 'grid-cols-[340px_1fr_340px]' : 'grid-cols-[340px_1fr_40px]') : mldOpen ? 'grid-cols-[1fr_340px]' : 'grid-cols-[1fr_40px]']"
-    >
-      <TextPanel v-if="textOpen" />
+    <main class="grid min-h-0 flex-1" :style="{ gridTemplateColumns: columns }">
+      <component :is="p.Component" v-for="p in panels('left')" :key="p.id" v-bind="panelProps(p)" />
       <div class="relative h-full min-w-0">
         <SearchBox />
-        <LintPanel v-if="store.view === 'mcd'" />
-        <FlowCanvas v-if="store.view === 'mcd'" />
-        <MldDiagram v-else-if="store.view === 'mld'" />
-        <DerivedDiagram v-else :key="store.view" :kind="store.view" />
+        <component :is="p.Component" v-for="p in panels('canvas')" :key="p.id" />
+        <component :is="view.Component" :key="view.id" v-bind="view.props" />
         <CanvasToolbar />
       </div>
-      <MldPanel :open="mldOpen" @toggle="toggleMld" />
+      <component :is="p.Component" v-for="p in panels('right')" :key="p.id" v-bind="panelProps(p)" />
     </main>
 
-    <EditEntityModal v-if="store.editingEntityId" :key="store.editingEntityId" />
-    <EditRelationModal v-if="store.editingRelationId" :key="store.editingRelationId" />
-    <SqlExportModal v-if="store.showSqlModal" />
-    <SqlImportModal v-if="store.showSqlImportModal" />
+    <template v-for="m in type.modals" :key="m.id">
+      <component :is="m.Component" v-if="m.visible()" :key="m.key?.() ?? m.id" />
+    </template>
     <ShortcutsModal v-if="store.showShortcutsModal" />
     <ShareModal v-if="store.showShareModal" />
     <ThemeModal v-if="store.showThemeModal" />

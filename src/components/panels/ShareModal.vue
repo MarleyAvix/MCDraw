@@ -1,17 +1,19 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { AlertTriangle, Check, Copy } from 'lucide-vue-next'
-import { useSchemaStore } from '../../stores/schemaStore'
+import { useDocumentStore } from '../../core/documentStore'
+import { useActiveDocument } from '../../core/useActiveDocument'
 import BaseModal from '../modals/BaseModal.vue'
 import { buildShareUrl, SHARE_SOFT_LIMIT } from '../../engine/shareLink'
 
-const store = useSchemaStore()
+const store = useDocumentStore()
+const { type, doc } = useActiveDocument()
 const url = ref('')
 const copied = ref(false)
 const input = ref<HTMLInputElement>()
 
 onMounted(async () => {
-  url.value = await buildShareUrl(store.schema, location.origin + location.pathname)
+  url.value = await buildShareUrl(doc.value.schema.value, location.origin + location.pathname, type.value.id)
   input.value?.select()
 })
 
@@ -30,7 +32,7 @@ async function copy() {
 <template>
   <BaseModal title="Partager par lien" @close="store.showShareModal = false">
     <p class="mb-3 text-sm text-slate-600">
-      Toute personne ouvrant ce lien obtient une copie du MCD actuel. Le diagramme est contenu dans le lien lui-même :
+      Toute personne ouvrant ce lien obtient une copie du diagramme actuel. Le diagramme est contenu dans le lien lui-même :
       rien n'est stocké sur un serveur, et les modifications ultérieures ne sont pas synchronisées.
     </p>
     <div class="flex gap-2">

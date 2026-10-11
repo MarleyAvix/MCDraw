@@ -1,23 +1,11 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useVueFlow } from '@vue-flow/core'
-import { Search, Square, Circle, Table2, TextCursorInput, X } from 'lucide-vue-next'
-import { useSchemaStore } from '../../stores/schemaStore'
+import { Search, Square, Circle, Table2, TextCursorInput, FileText, X } from 'lucide-vue-next'
+import { useActiveDocument } from '../../core/useActiveDocument'
+import type { SearchHit as Hit } from '../../core/documentType'
 
-interface Hit {
-  key: string
-  /** Identifiant du nœud à cibler (id en MCD, nom de table en MLD). */
-  nodeId: string
-  label: string
-  context: string
-  kind: 'entity' | 'relation' | 'table' | 'attribute'
-}
-
-const store = useSchemaStore()
-const mcd = useVueFlow('mcdraw')
-const mld = useVueFlow('mld')
-const erd = useVueFlow('erd')
-const uml = useVueFlow('uml')
+const { doc, view } = useActiveDocument()
 
 const query = ref('')
 const open = ref(false)
@@ -27,24 +15,7 @@ const input = ref<HTMLInputElement>()
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
 /** Tout ce qui est cherchable dans la vue courante. */
-const index = computed<Hit[]>(() => {
-  if (store.view === 'mld') {
-    return store.mld.tables.flatMap((t) => [
-      { key: `t:${t.name}`, nodeId: t.name, label: t.name, context: t.origin === 'entity' ? 'Table' : 'Table d’association', kind: 'table' as const },
-      ...t.columns.map((c) => ({ key: `c:${t.name}.${c.name}`, nodeId: t.name, label: c.name, context: `colonne de ${t.name}`, kind: 'attribute' as const })),
-    ])
-  }
-  return [
-    ...store.entities.map((e) => ({ key: e.id, nodeId: e.id, label: e.name, context: 'Entité', kind: 'entity' as const })),
-    ...store.relations.map((r) => ({ key: r.id, nodeId: r.id, label: r.name, context: 'Association', kind: 'relation' as const })),
-    ...store.entities.flatMap((e) =>
-      e.attributes.map((a) => ({ key: a.id, nodeId: e.id, label: a.name, context: `attribut de ${e.name}`, kind: 'attribute' as const })),
-    ),
-    ...store.relations.flatMap((r) =>
-      r.attributes.map((a) => ({ key: a.id, nodeId: r.id, label: a.name, context: `propriété de ${r.name}`, kind: 'attribute' as const })),
-    ),
-  ]
-})
+const index = computed<Hit[]>(() => doc.value.searchIndex(view.value.id))
 
 const results = computed<Hit[]>(() => {
   const q = norm(query.value.trim())
@@ -61,19 +32,19 @@ const results = computed<Hit[]>(() => {
 
 watch(results, () => (active.value = 0))
 
-const icons = { entity: Square, relation: Circle, table: Table2, attribute: TextCursorInput }
+const icons = { entity: Square, relation: Circle, table: Table2, attribute: TextCursorInput, page: FileText }
 
 /** Sélectionne l'élément, recadre le canvas dessus et le fait clignoter. */
 function pick(hit: Hit) {
-  const flow = { mcd, mld, erd, uml }[store.view]
-  if (store.view === 'mcd') store.selection = [hit.nodeId]
+  const flow = useVueFlow(view.value.flowId)
+  if (view.value.editable) doc.value.selection.value = [hit.nodeId]
   const node = flow.findNode(hit.nodeId)
   if (node) {
     const w = node.dimensions?.width || 180
     const h = node.dimensions?.height || 100
     flow.setCenter(node.position.x + w / 2, node.position.y + h / 2, { zoom: Math.max(flow.viewport.value.zoom, 0.9), duration: 350 })
   }
-  store.flash(hit.nodeId)
+  doc.value.flash(hit.nodeId)
   open.value = false
   input.value?.blur()
 }
@@ -130,7 +101,7 @@ onUnmounted(() => window.removeEventListener('keydown', onGlobalKey))
       <input
         ref="input"
         v-model="query"
-        :placeholder="store.view === 'mld' ? 'Rechercher une table, une colonne…' : 'Rechercher… (Ctrl+F)'"
+        :placeholder="view.searchPlaceholder ?? 'Rechercher… (Ctrl+F)'"
         class="min-w-0 flex-1 border-0 bg-transparent text-sm outline-none"
         aria-label="Rechercher dans le schéma"
         @focus="open = true"
