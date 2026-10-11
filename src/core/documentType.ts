@@ -20,7 +20,7 @@ export interface SearchHit {
   nodeId: string
   label: string
   context: string
-  kind: 'entity' | 'relation' | 'table' | 'attribute' | 'page'
+  kind: 'entity' | 'relation' | 'table' | 'attribute' | 'page' | 'idea'
 }
 
 /** Ce que le shell sait faire d'un document, quel que soit son type. Chaque type l'implémente avec son propre store. */
@@ -79,7 +79,10 @@ export interface DocumentAction<S = unknown> {
 
 /** Touche simple (sans Ctrl) propre au type, ex : N pour une entité. Les raccourcis communs sont dans le shell. */
 export interface DocumentShortcut<S = unknown> {
+  /** Valeur de `KeyboardEvent.key` en minuscules (`n`, `tab`, `enter`, `' '`). */
   key: string
+  /** Libellé de la touche si `key` ne s'affiche pas tel quel (ex : « Espace »). */
+  keyLabel?: string
   label: string
   run(ctx: ActionContext<S>): void
 }

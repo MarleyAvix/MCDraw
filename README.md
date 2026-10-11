@@ -3,7 +3,7 @@
 # MCDraw
 
 **Draw your data model. Get your database.**<br/>
-A light, fast, in-browser diagramming tool: Merise conceptual models (MCD) that turn into SQL, ORM code and test data — plus simple brainstorming diagrams such as site maps.
+A light, fast, in-browser diagramming tool: Merise conceptual models (MCD) that turn into SQL, ORM code and test data — plus simple brainstorming diagrams such as site maps and mind maps.
 
 [🇬🇧 English](README.md) · [🇫🇷 Français](README.fr.md)
 
@@ -31,6 +31,7 @@ A light, fast, in-browser diagramming tool: Merise conceptual models (MCD) that 
 | --- | --- |
 | **Database** (Merise) | MCD editor with cardinalities, relative identifiers (CIF), inheritance → computed **MLD**, **ERD** (crow's foot) and **UML** class views |
 | **Site map** | Type your pages as an indented list *or* draw the tree — both stay in sync. Export a **Markdown** list or a **`sitemap.xml`** (sitemaps.org) |
+| **Mind map** | Jot ideas as an indented list or grow the branches on the map. Balanced layout around the central idea, one colour per branch, collapsible branches. Export **Markdown** or **OPML** (XMind, MindNode, OmniOutliner…) |
 
 <table>
   <tr>
@@ -63,6 +64,12 @@ A light, fast, in-browser diagramming tool: Merise conceptual models (MCD) that 
 - Deterministic tree layout that respects the order of your lines.
 - Child page `N`, sibling page `S`, **Before / After** buttons to reorder, in-place renaming, address and note per page, copy / paste of whole subtrees, search.
 - Three starter templates.
+
+### Mind map
+
+- Same live text ⇄ map sync as the site map, with a balanced layout (branches spread left and right of the central idea) and one colour per branch.
+- `Tab` adds a sub-idea, `Enter` an idea at the same level, `Space` collapses / expands a branch; **Up / Down** buttons reorder siblings, notes per idea, copy / paste of whole branches, search.
+- Three starter templates; export to **Markdown** or **OPML**.
 
 ### Everywhere
 
@@ -124,16 +131,17 @@ A *document type* is described by a single contract, [`DocumentType`](src/core/d
 
 ```
 src/
-├─ core/          DocumentType contract, registry, shell state
+├─ core/          DocumentType contract, registry, shell state, shared tree helpers
 ├─ documents/
 │  ├─ mcd/        Database (Merise)
-│  └─ sitemap/    Site map
+│  ├─ sitemap/    Site map
+│  └─ mindmap/    Mind map
 ├─ engine/        Pure logic: MCD → MLD, SQL, ORM, seed data, share links…
 ├─ composables/   History, persistence, canvas tools, file I/O…
 └─ components/    Canvas, panels and modals of the database type
 ```
 
-To add a type (mind map, org chart…): create a folder in `src/documents/`, implement `DocumentType`, and register it in `src/documents/index.ts`. History, auto-save, JSON export, share links and search come for free.
+To add a type (org chart, flowchart…): create a folder in `src/documents/`, implement `DocumentType`, and register it in `src/documents/index.ts`. History, auto-save, JSON export, share links and search come for free.
 
 ## Contributing
 

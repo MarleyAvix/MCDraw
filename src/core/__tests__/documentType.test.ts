@@ -13,8 +13,8 @@ beforeEach(() => {
 })
 
 describe('registre des types de document', () => {
-  it('enregistre le MCD en premier (type ouvert par défaut) puis le sitemap', () => {
-    expect(documentTypes().map((t) => t.id)).toEqual(['mcd', 'sitemap'])
+  it('enregistre le MCD en premier (type ouvert par défaut) puis le sitemap et la carte mentale', () => {
+    expect(documentTypes().map((t) => t.id)).toEqual(['mcd', 'sitemap', 'mindmap'])
     expect(getDocumentType('inconnu')).toBeUndefined()
   })
 
@@ -42,6 +42,7 @@ describe('registre des types de document', () => {
   it.each([
     ['mcd', 'mcd', { entities: [], relations: [], links: [] }],
     ['sitemap', 'tree', { pages: [] }],
+    ['mindmap', 'map', { nodes: [] }],
   ])('%s : l’API de document est complète', async (id, viewId, empty) => {
     const doc = getDocumentType(id)!.useDocument()
     expect(doc.view.value).toBe(viewId)
@@ -63,16 +64,20 @@ describe('registre des types de document', () => {
 describe('détection du type d’un fichier importé', () => {
   const mcd = { entities: [], relations: [], links: [] }
   const plan = { pages: [] }
+  const carte = { nodes: [] }
 
   it('chaque type reconnaît ses données et pas celles des autres', () => {
     expect(getDocumentType('mcd')!.accepts(mcd)).toBe(true)
     expect(getDocumentType('mcd')!.accepts(plan)).toBe(false)
     expect(getDocumentType('sitemap')!.accepts(plan)).toBe(true)
     expect(getDocumentType('sitemap')!.accepts(mcd)).toBe(false)
+    expect(getDocumentType('mindmap')!.accepts(carte)).toBe(true)
+    for (const other of [mcd, plan]) expect(getDocumentType('mindmap')!.accepts(other)).toBe(false)
+    for (const id of ['mcd', 'sitemap']) expect(getDocumentType(id)!.accepts(carte)).toBe(false)
   })
 
   it('refuse ce qui n’a pas la forme d’un objet', () => {
-    for (const bad of [null, undefined, 'texte', 42, [], { pages: 'non' }]) {
+    for (const bad of [null, undefined, 'texte', 42, [], { pages: 'non' }, { nodes: 'non' }]) {
       for (const t of documentTypes()) expect(t.accepts(bad)).toBe(false)
     }
   })
@@ -80,6 +85,7 @@ describe('détection du type d’un fichier importé', () => {
   it('detectDocumentType trouve le bon type, ou aucun', () => {
     expect(detectDocumentType(plan, 'mcd')?.id).toBe('sitemap')
     expect(detectDocumentType(mcd, 'sitemap')?.id).toBe('mcd')
+    expect(detectDocumentType(carte, 'mcd')?.id).toBe('mindmap')
     expect(detectDocumentType({ autre: 1 })).toBeUndefined()
   })
 })

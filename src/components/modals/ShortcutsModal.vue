@@ -15,7 +15,7 @@ const btn = "inline-flex items-center justify-center rounded-md border border-sl
       <div class="space-y-3 text-sm">
         <div v-for="s in type.shortcuts" :key="s.key" class="flex justify-between border-b border-slate-100 pb-2">
           <span class="font-semibold text-slate-600">{{ s.label }}</span>
-          <kbd class="rounded bg-slate-100 px-2 py-1 font-mono text-xs text-slate-800">{{ s.key.toUpperCase() }}</kbd>
+          <kbd class="rounded bg-slate-100 px-2 py-1 font-mono text-xs text-slate-800">{{ s.keyLabel ?? s.key.toUpperCase() }}</kbd>
         </div>
         <div class="flex justify-between border-b border-slate-100 pb-2">
           <span class="font-semibold text-slate-600">Annuler</span>
