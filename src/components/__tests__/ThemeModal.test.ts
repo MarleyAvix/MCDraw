@@ -5,7 +5,8 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import ThemeModal from '../panels/ThemeModal.vue'
 import { useAppearance } from '../../composables/useAppearance'
-import { useSchemaStore } from '../../stores/schemaStore'
+import { useDocumentStore } from '../../core/documentStore'
+import { registerDocuments } from '../../documents'
 
 // La modale est téléportée dans <body> : on interroge le document, pas le wrapper.
 const colors = () => [...document.body.querySelectorAll<HTMLInputElement>('input[type="color"]')]
@@ -53,7 +54,8 @@ describe('ThemeModal', () => {
   it('se ferme avec le bouton Fermer', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
-    const store = useSchemaStore()
+    registerDocuments()
+    const store = useDocumentStore()
     store.showThemeModal = true
     const w = mountModal(pinia)
     click(buttonWith('Fermer'))

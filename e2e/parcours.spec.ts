@@ -211,4 +211,50 @@ test.describe('parcours principaux', () => {
     await page.mouse.up()
     expect(await transform()).toBe(again)
   })
+
+  test.describe('plan de site', () => {
+    const nodes = (page: Page) => page.locator('.vue-flow__node')
+
+    test('bascule vers le plan de site, y garde son propre contenu et revient au MCD intact', async ({ page }) => {
+      await page.goto('/')
+      const mcdCount = await nodes(page).count()
+      await page.getByRole('tab', { name: 'Plan de site' }).click()
+      await expect(nodes(page).first()).toContainText('Accueil')
+      await expect(page.getByRole('button', { name: 'Page', exact: true })).toBeVisible()
+      await page.getByRole('tab', { name: 'Base de données' }).click()
+      await expect(nodes(page)).toHaveCount(mcdCount)
+    })
+
+    test('la saisie texte construit l’arbre en direct, dans l’ordre des lignes', async ({ page }) => {
+      await page.goto('/')
+      await page.getByRole('tab', { name: 'Plan de site' }).click()
+      const text = page.getByLabel('Description textuelle du plan de site')
+      await text.fill(['Accueil /', '  Blog /blog', '  Contact /contact'].join('\n'))
+      await expect(nodes(page)).toHaveCount(3)
+
+      const box = async (name: string) => (await nodes(page).filter({ hasText: name }).first().boundingBox())!
+      expect((await box('Blog')).x).toBeLessThan((await box('Contact')).x)
+      expect((await box('Accueil')).y).toBeLessThan((await box('Blog')).y)
+
+      await text.fill(['Accueil /', '/seule'].join('\n'))
+      await expect(page.getByText('Titre manquant')).toBeVisible()
+      await expect(nodes(page)).toHaveCount(3) // l'arbre garde la dernière version valide
+    })
+
+    test('le bouton Page ajoute une sous-page, annuler la retire, et Markdown s’exporte', async ({ page }) => {
+      await page.goto('/')
+      await page.getByRole('tab', { name: 'Plan de site' }).click()
+      const before = await nodes(page).count()
+      await page.getByRole('button', { name: 'Page', exact: true }).click()
+      await expect(nodes(page)).toHaveCount(before + 1)
+      await page.keyboard.press('Control+z')
+      await expect(nodes(page)).toHaveCount(before)
+
+      const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Markdown' }).click()])
+      expect(download.suggestedFilename()).toBe('sitemap.md')
+      const md = await readFile((await download.path())!, 'utf-8')
+      expect(md).toContain('- [Accueil](/)')
+    })
+  })
 })
+

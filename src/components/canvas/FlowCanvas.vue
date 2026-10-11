@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { ref } from 'vue'
 import { ConnectionMode, SelectionMode, VueFlow, useVueFlow, type Connection, type NodeMouseEvent } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { ControlButton, Controls } from '@vue-flow/controls'
 import { Hand, MousePointer2 } from 'lucide-vue-next'
 import { useSchemaStore } from '../../stores/schemaStore'
 import { useTheme } from '../../composables/useTheme'
+import { useCanvasTools } from '../../composables/useCanvasTools'
 import EntityNode from './EntityNode.vue'
 import RelationNode from './RelationNode.vue'
 import LinkEdge from './LinkEdge.vue'
@@ -13,23 +14,9 @@ import IsaEdge from './IsaEdge.vue'
 
 const store = useSchemaStore()
 const { isDark } = useTheme()
-const { onNodeDragStop, onNodeDoubleClick, onEdgeClick, onNodesChange, onEdgesChange, onConnect, onConnectStart, onConnectEnd, screenToFlowCoordinate, vueFlowRef, viewport, setViewport } = useVueFlow('mcdraw')
+const { onNodeDragStop, onNodeDoubleClick, onEdgeClick, onNodesChange, onEdgesChange, onConnect, onConnectStart, onConnectEnd, screenToFlowCoordinate } = useVueFlow('mcdraw')
 
-// Deux outils : « sélection » (glisser sur le fond trace un rectangle ; la vue se déplace à la molette cliquée) et « main »
-// (glisser sur le fond déplace la vue). Le zoom se fait toujours à la molette / au pincement.
-// Attention : avec `selection-key-code` à true, Vue Flow refuse la molette dès que `pan-on-drag` contient 0.
-const tool = ref<'select' | 'pan'>('select')
-
-// Trackpad : un balayage horizontal déplace la vue (la molette verticale, elle, zoome ; le pincement aussi, via ctrlKey).
-function onWheel(e: WheelEvent) {
-  if (e.ctrlKey || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return
-  e.preventDefault()
-  e.stopPropagation()
-  const v = viewport.value
-  setViewport({ x: v.x - e.deltaX, y: v.y, zoom: v.zoom }, { duration: 0 })
-}
-onMounted(() => vueFlowRef.value?.addEventListener('wheel', onWheel, { capture: true, passive: false }))
-onBeforeUnmount(() => vueFlowRef.value?.removeEventListener('wheel', onWheel, { capture: true }))
+const { tool } = useCanvasTools('mcdraw')
 
 // `nodes` contient tous les nœuds déplacés ensemble (sélection multiple), pas seulement celui saisi.
 onNodeDragStop(({ node, nodes }) => {

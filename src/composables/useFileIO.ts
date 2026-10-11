@@ -1,7 +1,7 @@
 import { nextTick } from 'vue'
 import { getRectOfNodes, useVueFlow } from '@vue-flow/core'
 import { toPng, toSvg } from 'html-to-image'
-import { useSchemaStore } from '../stores/schemaStore'
+import { useActiveDocument } from '../core/useActiveDocument'
 
 function download(href: string, filename: string) {
   const a = Object.assign(document.createElement('a'), { href, download: filename })
@@ -34,18 +34,14 @@ function inlineSvgStyles(root: HTMLElement) {
 
 /** Export / import du projet (JSON) et export du canvas en image (PNG / SVG). */
 export function useFileIO() {
-  const store = useSchemaStore()
-  const mcd = useVueFlow('mcdraw')
-  const mld = useVueFlow('mld')
-  const erd = useVueFlow('erd')
-  const uml = useVueFlow('uml')
-  const active = () => ({ mcd, mld, erd, uml })[store.view]
+  const { type, doc, view } = useActiveDocument()
+  const active = () => useVueFlow(view.value.flowId)
 
-  const exportJson = () => downloadBlob(JSON.stringify(store.schema, null, 2), 'application/json', 'mcdraw.json')
+  const exportJson = () => downloadBlob(JSON.stringify(doc.value.schema.value, null, 2), 'application/json', `${type.value.fileName}.json`)
 
   async function importJson(file: File) {
     try {
-      store.importSchema(JSON.parse(await file.text()))
+      doc.value.importRaw(JSON.parse(await file.text()))
       await nextTick()
       setTimeout(() => active().fitView({ padding: 0.2 }), 50)
     } catch (e) {
@@ -103,7 +99,7 @@ export function useFileIO() {
 
   async function exportImage(format: 'png' | 'svg') {
     const img = await captureImage(format)
-    if (img) download(img.url, `${store.view}.${format}`)
+    if (img) download(img.url, `${view.value.id}.${format}`)
   }
 
   /** Ouvre le diagramme dans une page d'impression (une seule page, orientation adaptée) : « Enregistrer au format PDF ». */
@@ -113,7 +109,7 @@ export function useFileIO() {
     const img = await captureImage('png')
     if (!img) return win.close()
     const orientation = img.width >= img.height ? 'landscape' : 'portrait'
-    win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${store.view}</title>
+    win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${view.value.id}</title>
 <style>@page{size:A4 ${orientation};margin:10mm}html,body{margin:0;height:100%}
 body{display:flex;align-items:center;justify-content:center}
 img{max-width:100%;max-height:100vh;object-fit:contain}</style></head>

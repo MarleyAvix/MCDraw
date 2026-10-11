@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { RotateCcw } from 'lucide-vue-next'
-import { useSchemaStore } from '../../stores/schemaStore'
+import { useDocumentStore } from '../../core/documentStore'
 import { useAppearance, type Appearance } from '../../composables/useAppearance'
 import BaseModal from '../modals/BaseModal.vue'
 
-const store = useSchemaStore()
+const store = useDocumentStore()
 const { appearance, reset } = useAppearance()
 
 const FIELDS: { key: keyof Appearance; label: string; hint: string; fallback: string }[] = [

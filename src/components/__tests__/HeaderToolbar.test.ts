@@ -4,12 +4,15 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import HeaderToolbar from '../panels/HeaderToolbar.vue'
 import { useSchemaStore } from '../../stores/schemaStore'
+import { useDocumentStore } from '../../core/documentStore'
+import { registerDocuments } from '../../documents'
 
 function setup() {
   const pinia = createPinia()
   setActivePinia(pinia)
+  registerDocuments()
   const w = mount(HeaderToolbar, { attachTo: document.body, global: { plugins: [pinia] } })
-  return { w, store: useSchemaStore() }
+  return { w, store: useSchemaStore(), shell: useDocumentStore() }
 }
 const button = (w: ReturnType<typeof setup>['w'], text: string) => w.findAll('button').find((b) => b.text().includes(text))!
 
@@ -34,9 +37,9 @@ describe('HeaderToolbar', () => {
   })
 
   it('le bouton palette ouvre la modale du thème', async () => {
-    const { w, store } = setup()
+    const { w, shell } = setup()
     await w.find('button[title="Couleurs du diagramme"]').trigger('click')
-    expect(store.showThemeModal).toBe(true)
+    expect(shell.showThemeModal).toBe(true)
     w.unmount()
   })
 

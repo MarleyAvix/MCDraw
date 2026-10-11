@@ -1,9 +1,9 @@
 import { useVueFlow } from '@vue-flow/core'
 
-/** Point du plan situé au centre de la zone visible, avec un léger décalage aléatoire. */
-export function useSpawnPoint() {
-  const { viewport, dimensions } = useVueFlow('mcdraw')
+/** Point du plan situé au centre de la zone visible du canvas `flowId`, avec un léger décalage aléatoire. */
+export function useSpawnPoint(flowId: string | (() => string) = 'mcdraw') {
   return () => {
+    const { viewport, dimensions } = useVueFlow(typeof flowId === 'function' ? flowId() : flowId)
     const z = viewport.value.zoom || 1
     const jitter = () => (Math.random() - 0.5) * 80
     return {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildShareUrl, decodeShare, encodeShare, readShareHash } from '../shareLink'
+import { buildShareUrl, decodeShare, encodeShare, readShare, readShareHash } from '../shareLink'
 
 const schema = {
   entities: [{ id: 'a', name: 'Cliente é à ü', attributes: [{ id: 'x', name: 'nom' }], x: 1, y: 2 }],
@@ -31,5 +31,20 @@ describe('shareLink', () => {
   it('refuse une bombe de décompression', async () => {
     const big = await encodeShare({ pad: 'a'.repeat(6 * 1024 * 1024) })
     await expect(decodeShare(big)).rejects.toThrow(/invalide/)
+  })
+
+  it('le MCD garde le fragment historique ; un autre type est préfixé', async () => {
+    const mcd = await buildShareUrl(schema, 'http://x/')
+    const sitemap = await buildShareUrl(schema, 'http://x/', 'sitemap')
+    expect(new URL(mcd).hash).toMatch(/^#share=/)
+    expect(new URL(sitemap).hash).toMatch(/^#share\.sitemap=/)
+    expect(readShare(new URL(mcd).hash)?.type).toBe('mcd')
+    expect(readShare(new URL(sitemap).hash)?.type).toBe('sitemap')
+    expect(readShare(new URL(sitemap).hash)?.payload).toBe(readShare(new URL(mcd).hash)?.payload)
+  })
+
+  it('readShare refuse les fragments mal formés', () => {
+    for (const h of ['', '#', '#share', '#share=', '#share.=abc', '#share.Sitemap=abc', '#autre=abc', '#share=a b']) expect(readShare(h)).toBeNull()
+    expect(readShareHash('#share.sitemap=abc')).toBeNull() // l'ancienne lecture ne confond pas les types
   })
 })
