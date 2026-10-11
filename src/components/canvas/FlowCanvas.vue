@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { ConnectionMode, VueFlow, useVueFlow, type Connection, type NodeMouseEvent } from '@vue-flow/core'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { ConnectionMode, SelectionMode, VueFlow, useVueFlow, type Connection, type NodeMouseEvent } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
-import { Controls } from '@vue-flow/controls'
+import { ControlButton, Controls } from '@vue-flow/controls'
+import { Hand, MousePointer2 } from 'lucide-vue-next'
 import { useSchemaStore } from '../../stores/schemaStore'
 import { useTheme } from '../../composables/useTheme'
 import EntityNode from './EntityNode.vue'
@@ -12,7 +13,23 @@ import IsaEdge from './IsaEdge.vue'
 
 const store = useSchemaStore()
 const { isDark } = useTheme()
-const { onNodeDragStop, onNodeDoubleClick, onEdgeClick, onNodesChange, onEdgesChange, onConnect, onConnectStart, onConnectEnd, screenToFlowCoordinate } = useVueFlow('mcdraw')
+const { onNodeDragStop, onNodeDoubleClick, onEdgeClick, onNodesChange, onEdgesChange, onConnect, onConnectStart, onConnectEnd, screenToFlowCoordinate, vueFlowRef, viewport, setViewport } = useVueFlow('mcdraw')
+
+// Deux outils : « sélection » (glisser sur le fond trace un rectangle ; la vue se déplace à la molette cliquée) et « main »
+// (glisser sur le fond déplace la vue). Le zoom se fait toujours à la molette / au pincement.
+// Attention : avec `selection-key-code` à true, Vue Flow refuse la molette dès que `pan-on-drag` contient 0.
+const tool = ref<'select' | 'pan'>('select')
+
+// Trackpad : un balayage horizontal déplace la vue (la molette verticale, elle, zoome ; le pincement aussi, via ctrlKey).
+function onWheel(e: WheelEvent) {
+  if (e.ctrlKey || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return
+  e.preventDefault()
+  e.stopPropagation()
+  const v = viewport.value
+  setViewport({ x: v.x - e.deltaX, y: v.y, zoom: v.zoom }, { duration: 0 })
+}
+onMounted(() => vueFlowRef.value?.addEventListener('wheel', onWheel, { capture: true, passive: false }))
+onBeforeUnmount(() => vueFlowRef.value?.removeEventListener('wheel', onWheel, { capture: true }))
 
 // `nodes` contient tous les nœuds déplacés ensemble (sélection multiple), pas seulement celui saisi.
 onNodeDragStop(({ node, nodes }) => {
@@ -181,8 +198,12 @@ onConnect((c: Connection) => {
     :is-valid-connection="isValid"
     :delete-key-code="['Delete', 'Backspace']"
     :multi-selection-key-code="['Control', 'Meta']"
+    :selection-key-code="tool === 'select'"
+    :selection-mode="SelectionMode.Partial"
+    :pan-on-drag="tool === 'select' ? [1] : true"
     fit-view-on-init
     class="bg-slate-50"
+    :class="tool === 'pan' ? 'tool-pan' : ''"
     @pane-click="closeMenus"
     @move-start="closeMenus"
     @node-click="closeMenus"
@@ -195,7 +216,10 @@ onConnect((c: Connection) => {
     <template #edge-link="props"><LinkEdge v-bind="props" /></template>
     <template #edge-isa="props"><IsaEdge v-bind="props" /></template>
     <Background :gap="20" :size="2" :pattern-color="isDark ? '#484f58' : '#afb8c1'" />
-    <Controls position="bottom-left" />
+    <Controls position="bottom-left">
+      <ControlButton title="Sélection (glisser = rectangle)" :class="{ 'tool-active': tool === 'select' }" @click="tool = 'select'"><MousePointer2 :size="14" /></ControlButton>
+      <ControlButton title="Main (glisser = déplacer la vue)" :class="{ 'tool-active': tool === 'pan' }" @click="tool = 'pan'"><Hand :size="14" /></ControlButton>
+    </Controls>
   </VueFlow>
   
   <div

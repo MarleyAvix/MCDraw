@@ -4,5 +4,15 @@ dist
 .claude
 ROADMAP.md
 
+# Tests
 test-results
 playwright-report
+coverage
+
+# Divers
+*.log
+*.tsbuildinfo
+.env
+.env.*
+.DS_Store
+Thumbs.db
