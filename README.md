@@ -85,7 +85,7 @@ A light, fast, in-browser diagramming tool: Merise conceptual models (MCD) that 
 - **Design linter** (23 rules): duplicate routes, unknown schemas, verbs or capitals in paths, singular collections, missing `404` / `400` / `401`, `POST` without `201`, lists without pagination, public write routes… Click a remark to jump to the route.
 - **Generate from your MCD**: one resource and input schema per entity, the five CRUD routes, nested lists for 1–n relations, attach / detach routes for n–n associations and nested paths for relative identifiers (CIF). Undoable.
 - **Import an existing OpenAPI 3** file (JSON or YAML): schemas, `allOf`, nullable types, parameters, bodies, responses and security are converted; what cannot be represented (`oneOf`, free-form objects, `default` responses…) is simplified and listed in a report.
-- Exports: **OpenAPI 3.1** (YAML and JSON), a **TypeScript client** (`api-client.ts`: interfaces plus a dependency-free, typed `fetch` client with auth, pagination and `ApiError`), a **`.http`** file (VS Code REST Client, JetBrains) with sample bodies, **Markdown** documentation. Three developer-oriented starter templates (shop, tasks, authentication).
+- Exports: **OpenAPI 3.1** (YAML and JSON), a **TypeScript client** (`api-client.ts`: interfaces plus a dependency-free, typed `fetch` client with auth, pagination and `ApiError`), **ASP.NET Core** Minimal API endpoints (typed routes, bound parameters, auth and declared responses; bodies left for you to write), a **`.http`** file (VS Code REST Client, JetBrains) with sample bodies, **Markdown** documentation. Three developer-oriented starter templates (shop, tasks, authentication).
 
 ### Everywhere
 

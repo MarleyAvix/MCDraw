@@ -1,6 +1,6 @@
 import { computed, toRef, type Ref } from 'vue'
 import { useVueFlow } from '@vue-flow/core'
-import { ArrowDown, ArrowUp, Braces, Code, Database, FileCode, FileJson, FileText, FileUp, FolderPlus, Info, Maximize2, Plus, RotateCcw, Terminal, TextCursorInput, Webhook } from 'lucide-vue-next'
+import { ArrowDown, ArrowUp, Braces, Code, Database, FileCode, FileJson, FileText, FileUp, FolderPlus, Info, Maximize2, Plus, RotateCcw, Server, Terminal, TextCursorInput, Webhook } from 'lucide-vue-next'
 import { getDocumentType, type ActionContext, type DocumentApi, type DocumentType } from '../../core/documentType'
 import { downloadBlob } from '../../composables/useFileIO'
 import type { MeriseSchema } from '../../types/schema'
@@ -11,6 +11,7 @@ import { apiToMarkdown } from './markdown'
 import { openApiToJson, openApiToYaml } from './openapi'
 import { openApiToApi, parseOpenApiSource } from './importOpenApi'
 import { apiToTypeScript } from './typescript'
+import { apiToAspNet } from './aspnet'
 import type { ApiDocument } from './model'
 import { ROOT_PATH } from './pathTree'
 import ApiRoutesCanvas from './ApiRoutesCanvas.vue'
@@ -194,6 +195,7 @@ export const apiDocument: DocumentType<ApiDocument> = {
     { id: 'import', label: 'Importer un OpenAPI…', title: 'Remplacer l’API par un fichier OpenAPI 3 existant (JSON ou YAML)', icon: FileUp, run: importOpenApi },
     { id: 'json', label: 'OpenAPI en JSON', title: 'Exporter un OpenAPI 3.1 en JSON', icon: FileJson, run: () => downloadBlob(openApiToJson(useApiStore().schema), 'application/json', 'openapi.json') },
     { id: 'typescript', label: 'Client TypeScript', title: 'Exporter les types et un client fetch typé (api-client.ts)', icon: Code, run: () => downloadBlob(apiToTypeScript(useApiStore().schema), 'text/plain', 'api-client.ts') },
+    { id: 'aspnet', label: 'Routes ASP.NET Core (C#)', title: 'Exporter les schémas en records et les routes en endpoints Minimal API à compléter (ApiEndpoints.cs)', icon: Server, run: () => downloadBlob(apiToAspNet(useApiStore().schema), 'text/plain', 'ApiEndpoints.cs') },
     { id: 'http', label: 'Requêtes .http', title: 'Exporter un fichier de requêtes .http (VS Code REST Client, JetBrains)', icon: Terminal, run: () => downloadBlob(apiToHttpFile(useApiStore().schema), 'text/plain', 'requests.http') },
     { id: 'markdown', label: 'Documentation Markdown', title: 'Exporter la documentation en Markdown', icon: FileText, run: () => downloadBlob(apiToMarkdown(useApiStore().schema), 'text/markdown', 'api.md') },
   ],
