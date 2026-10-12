@@ -15,11 +15,11 @@ const groups = computed(() =>
   })).filter((g) => g.actions.length || g.history),
 )
 
-const btn = 'inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-surface px-3 py-1.5 text-sm font-medium hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-surface shadow-sm'
+const btn = 'inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-slate-300 bg-surface px-3 py-1.5 text-sm font-medium hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-surface shadow-sm'
 </script>
 
 <template>
-  <div class="absolute bottom-4 left-16 z-10 flex items-center gap-2 rounded-lg bg-surface/80 p-2 shadow-lg backdrop-blur-sm border border-slate-200">
+  <div class="absolute bottom-4 left-16 z-10 flex max-w-[calc(100%-5rem)] flex-wrap items-center gap-2 rounded-lg bg-surface/80 p-2 shadow-lg backdrop-blur-sm border border-slate-200">
     <template v-for="(g, i) in groups" :key="g.id">
       <span v-if="i > 0" class="mx-1 h-6 w-px bg-slate-200" />
       <template v-if="g.history">
@@ -33,9 +33,10 @@ const btn = 'inline-flex items-center gap-1.5 rounded-md border border-slate-300
         :title="a.title"
         :aria-pressed="a.pressed ? a.pressed(ctx()) : undefined"
         :disabled="a.disabled?.(ctx())"
+        :aria-label="a.compact ? a.label : undefined"
         @click="a.run(ctx())"
       >
-        <component :is="a.icon" :size="16" :class="a.iconClass" /> {{ a.label }}
+        <component :is="a.icon" :size="16" :class="a.iconClass" /> <span :class="a.compact ? 'hidden 2xl:inline' : ''">{{ a.label }}</span>
       </button>
     </template>
   </div>

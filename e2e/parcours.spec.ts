@@ -76,6 +76,38 @@ test.describe('parcours principaux', () => {
     expect(download.suggestedFilename()).toBe('mcd.png')
   })
 
+  test('l’export image (PNG, SVG, PDF) fonctionne pour chaque type et chaque vue', async ({ page }) => {
+    test.setTimeout(90_000) // une dizaine de captures : large marge quand toute la suite tourne en parallèle
+    const grab = async (menuItem: string) => {
+      await page.getByRole('button', { name: /Fichier/ }).click()
+      const [download] = await Promise.all([page.waitForEvent('download'), page.getByText(menuItem, { exact: true }).click()])
+      return { name: download.suggestedFilename(), bytes: await readFile((await download.path())!) }
+    }
+    await page.goto('/')
+    for (const [tab, file] of [['Plan de site', 'tree'], ['Carte mentale', 'map'], ['API REST', 'routes']] as const) {
+      await page.getByRole('tab', { name: tab, exact: true }).click()
+      await expect(page.locator('.vue-flow__node').first()).toBeVisible()
+      const png = await grab('Image PNG')
+      expect(png.name).toBe(`${file}.png`)
+      expect(png.bytes.subarray(1, 4).toString()).toBe('PNG')
+      expect(png.bytes.length).toBeGreaterThan(2000)
+      const svg = await grab('Image SVG')
+      expect(svg.name).toBe(`${file}.svg`)
+      expect(svg.bytes.toString()).toContain('<svg')
+    }
+
+    // La seconde vue de l'API (schémas) s'exporte aussi, sous son propre nom.
+    await page.getByRole('tab', { name: 'Schémas', exact: true }).click()
+    await expect(page.locator('.vue-flow__node').first()).toBeVisible()
+    expect((await grab('Image PNG')).name).toBe('schemas.png')
+
+    // PDF : une page d'impression s'ouvre avec l'image du diagramme.
+    await page.getByRole('button', { name: /Fichier/ }).click()
+    const [popup] = await Promise.all([page.waitForEvent('popup'), page.getByText('PDF / Imprimer…').click()])
+    await expect(popup.locator('img')).toHaveAttribute('src', /^data:image\/png/)
+    await popup.close()
+  })
+
   test("le menu de cardinalité reste ouvert quand on y déplace la souris, et propose Droit / Courbe", async ({ page }) => {
     await page.goto('/')
     const label = page.locator('button[title^="Cliquer"]').first()
@@ -380,6 +412,282 @@ test.describe('parcours principaux', () => {
       await p2.goto(link)
       await expect(p2.getByRole('tab', { name: 'Carte mentale' })).toHaveAttribute('aria-selected', 'true')
       await expect(nodes(p2).filter({ hasText: 'Idée importée' })).toHaveCount(1)
+      await other.close()
+    })
+  })
+
+  test.describe('API REST', () => {
+    const nodes = (page: Page) => page.locator('.vue-flow__node')
+    const open = async (page: Page) => {
+      await page.goto('/')
+      await page.getByRole('tab', { name: 'API REST', exact: true }).click()
+    }
+    const text = (page: Page) => page.getByLabel("Description textuelle de l'API")
+    /** Ouvre « Fichier » puis « Importer un OpenAPI… » et renvoie le sélecteur de fichier. */
+    const chooseOpenApi = async (page: Page) => {
+      await page.getByRole('button', { name: /Fichier/ }).click()
+      const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.getByRole('button', { name: 'Importer un OpenAPI…' }).click()])
+      return chooser
+    }
+    /** Télécharge via une entrée du menu « Fichier ». */
+    const fromFileMenu = async (page: Page, item: string) => {
+      await page.getByRole('button', { name: /Fichier/ }).click()
+      const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: item, exact: true }).click()])
+      return download
+    }
+
+    test('bascule vers l’API, affiche l’arbre des routes et revient au MCD intact', async ({ page }) => {
+      await page.goto('/')
+      const mcdCount = await nodes(page).count()
+      await page.getByRole('tab', { name: 'API REST', exact: true }).click()
+      await expect(nodes(page)).toHaveCount(5) // racine, /products, /products/{id}, /orders, /orders/{id}
+      await expect(nodes(page).filter({ hasText: '/products' }).first()).toContainText('Lister les produits')
+      await expect(text(page)).toHaveValue(/@title API Boutique/)
+      await page.getByRole('tab', { name: 'Base de données' }).click()
+      await expect(nodes(page)).toHaveCount(mcdCount)
+    })
+
+    test('la saisie texte construit l’arbre en direct et signale les erreurs par ligne', async ({ page }) => {
+      await open(page)
+      await text(page).fill(['/users', '  GET Lister -> 200', '  /{id}', '    GET Détail -> 200, 404'].join('\n'))
+      await expect(nodes(page)).toHaveCount(3)
+      await expect(nodes(page).filter({ hasText: '/{id}' })).toContainText('Détail')
+
+      await text(page).fill(['/users', '  GET Lister -> 999'].join('\n'))
+      await expect(page.getByText('Réponse invalide')).toBeVisible()
+      await expect(nodes(page)).toHaveCount(3) // le diagramme garde la dernière version valide
+    })
+
+    test('description, groupes et obsolescence se saisissent dans la fenêtre et passent dans le texte', async ({ page }) => {
+      await open(page)
+      await page.getByTitle('Modifier GET /products', { exact: true }).click()
+      const dialog = page.getByRole('dialog')
+      await dialog.getByLabel('Groupes').fill('Catalogue, Public')
+      await dialog.getByPlaceholder('Explication plus longue (facultatif)').fill('Tous les produits en vente.')
+      await dialog.getByLabel('Obsolète').check()
+      await dialog.getByRole('button', { name: 'Enregistrer' }).click()
+      await expect(text(page)).toHaveValue(/\[deprecated\]/)
+      await expect(text(page)).toHaveValue(/# Catalogue, Public/)
+      await expect(text(page)).toHaveValue(/~ Tous les produits en vente\./)
+    })
+
+    test('modifier une route dans la fenêtre d’édition met à jour la carte et le texte', async ({ page }) => {
+      await open(page)
+      await page.getByTitle('Modifier GET /products', { exact: true }).click()
+      const dialog = page.getByRole('dialog')
+      await dialog.getByPlaceholder('Lister les utilisateurs').fill('Catalogue complet')
+      await dialog.getByRole('button', { name: 'Réponse', exact: true }).click()
+      await dialog.getByLabel('Code HTTP').last().fill('500')
+      await dialog.getByRole('button', { name: 'Enregistrer' }).click()
+      await expect(nodes(page).filter({ hasText: '/products' }).first()).toContainText('Catalogue complet')
+      await expect(text(page)).toHaveValue(/GET Catalogue complet \[paginated\] -> 200 Product\[\], 500/)
+    })
+
+    test('un code HTTP invalide bloque l’enregistrement', async ({ page }) => {
+      await open(page)
+      await page.getByTitle('Modifier GET /products', { exact: true }).click()
+      const dialog = page.getByRole('dialog')
+      await dialog.getByLabel('Code HTTP').first().fill('42')
+      await expect(dialog.getByRole('alert')).toContainText('Code HTTP invalide')
+      await expect(dialog.getByRole('button', { name: 'Enregistrer' })).toBeDisabled()
+    })
+
+    test('la vue Schémas liste les ressources, et on y ajoute un schéma', async ({ page }) => {
+      await open(page)
+      await page.getByRole('tab', { name: 'Schémas', exact: true }).click()
+      await expect(nodes(page)).toHaveCount(5)
+      await expect(nodes(page).filter({ hasText: /^OrderLine/ })).toContainText('Utilisé par 2 schémas')
+      await page.getByRole('button', { name: 'Schéma', exact: true }).click()
+      const dialog = page.getByRole('dialog')
+      await dialog.getByLabel('Nom du schéma').fill('Invoice')
+      await dialog.getByRole('button', { name: 'Enregistrer' }).click()
+      await expect(nodes(page)).toHaveCount(6)
+      await expect(text(page)).toHaveValue(/schema Invoice/)
+    })
+
+    test('le linter signale une erreur de conception et mène à la route concernée', async ({ page }) => {
+      await open(page)
+      await text(page).fill(['/users', '  GET Lister -> 200 Fantome'].join('\n'))
+      const pill = page.getByRole('button', { name: /remarque/ })
+      await expect(pill).toContainText('1 erreur')
+      await pill.click()
+      await page.getByRole('list', { name: "Remarques de conception de l'API" }).getByRole('button', { name: /Fantome/ }).click()
+      await expect(nodes(page).filter({ hasText: '/users' }).first()).toHaveClass(/selected/)
+    })
+
+    test('Monter / Descendre réordonne les chemins, et la fenêtre d’édition réordonne les méthodes', async ({ page }) => {
+      await open(page)
+      await text(page).fill(['/a', '  GET', '/b', '  GET', '  POST', '/c', '  GET'].join('\n'))
+      await expect(nodes(page)).toHaveCount(4)
+      const up = page.getByRole('button', { name: 'Monter', exact: true })
+      await expect(up).toBeDisabled() // rien n'est sélectionné
+
+      await nodes(page).filter({ hasText: '/c' }).first().locator('.font-mono').first().click()
+      await up.click()
+      await up.click()
+      await expect(text(page)).toHaveValue(/^\/c\n {2}GET\n\/a\n/)
+      await expect(up).toBeDisabled() // déjà le premier
+      await page.getByRole('button', { name: 'Descendre', exact: true }).click()
+      await expect(text(page)).toHaveValue(/^\/a\n {2}GET\n\/c\n/)
+
+      await page.getByTitle('Modifier POST /b', { exact: true }).click()
+      const dialog = page.getByRole('dialog')
+      await dialog.getByRole('button', { name: 'Monter la route' }).click()
+      await expect(dialog.getByRole('button', { name: 'Monter la route' })).toBeDisabled()
+      await page.keyboard.press('Escape')
+      await expect(text(page)).toHaveValue(/\/b\n {2}POST\n {2}GET/)
+    })
+
+    test('les boutons de survol d’une carte ne figurent pas dans l’image exportée', async ({ page }) => {
+      await open(page)
+      const card = nodes(page).filter({ hasText: '/products' }).first()
+      await card.hover()
+      const add = card.getByRole('button', { name: 'Ajouter un sous-chemin' })
+      await expect(add).toBeVisible()
+      await page.locator('.vue-flow').first().evaluate((el) => el.classList.add('exporting')) // état pendant la capture
+      await expect(add).toBeHidden()
+    })
+
+    test('importe un fichier OpenAPI (YAML), signale les simplifications, et Ctrl+Z revient à l’API précédente', async ({ page }) => {
+      const dialogs: string[] = []
+      page.on('dialog', (d) => {
+        dialogs.push(d.message())
+        d.accept()
+      })
+      await open(page)
+      const before = await text(page).inputValue()
+      const yaml = ['openapi: 3.0.0', 'info: { title: Importée, version: "1.0" }', 'paths:', '  /pets/{id}:', '    get:', '      summary: Un animal', '      responses:', '        "200":', '          description: OK', '          content:', '            application/json:', '              schema: { $ref: "#/components/schemas/Pet" }', '        default: { description: Erreur }', 'components:', '  schemas:', '    Pet:', '      type: object', '      required: [id]', '      properties: { id: { type: integer }, name: { type: string } }'].join('\n')
+      const chooser = await chooseOpenApi(page)
+      await chooser.setFiles({ name: 'pets.yaml', mimeType: 'application/yaml', buffer: Buffer.from(yaml) })
+
+      await expect(nodes(page).filter({ hasText: '/pets' })).toHaveCount(1)
+      await expect(text(page)).toHaveValue(/@title Importée/)
+      await expect(text(page)).toHaveValue(/schema Pet/)
+      await expect(text(page)).toHaveValue(/GET Un animal -> 200 Pet/)
+      expect(dialogs.some((m) => m.includes('Remplacer'))).toBe(true)
+      expect(dialogs.some((m) => m.includes('« default » ignorée'))).toBe(true)
+
+      await page.keyboard.press('Control+z')
+      await expect(text(page)).toHaveValue(before)
+    })
+
+    test('un fichier téléchargé en OpenAPI (YAML) se réimporte à l’identique', async ({ page }) => {
+      page.on('dialog', (d) => d.accept())
+      await open(page)
+      const before = await text(page).inputValue()
+      const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'OpenAPI', exact: true }).click()])
+      const yaml = await readFile((await download.path())!)
+
+      await page.getByRole('button', { name: 'Réinitialiser' }).click()
+      await expect(nodes(page)).toHaveCount(0)
+      const chooser = await chooseOpenApi(page)
+      await chooser.setFiles({ name: 'openapi.yaml', mimeType: 'application/yaml', buffer: yaml })
+      await expect(text(page)).toHaveValue(before)
+    })
+
+    test('un fichier illisible ou Swagger 2 est refusé avec un message clair', async ({ page }) => {
+      const dialogs: string[] = []
+      page.on('dialog', (d) => {
+        dialogs.push(d.message())
+        d.accept()
+      })
+      await open(page)
+      const before = await text(page).inputValue()
+      for (const [name, content] of [['v2.json', '{"swagger":"2.0","paths":{}}'], ['mauvais.yaml', 'a: [1, 2\nb: : :']] as const) {
+        const chooser = await chooseOpenApi(page)
+        await chooser.setFiles({ name, mimeType: 'text/plain', buffer: Buffer.from(content) })
+      }
+      await expect.poll(() => dialogs.length).toBe(2)
+      expect(dialogs[0]).toContain('Swagger 2.0')
+      expect(dialogs[1]).toContain('ni JSON ni YAML')
+      await expect(text(page)).toHaveValue(before) // l'API n'a pas bougé
+    })
+
+    test('importer un OpenAPI par le menu Fichier du MCD indique où l’importer', async ({ page }) => {
+      const dialogs: string[] = []
+      page.on('dialog', (d) => {
+        dialogs.push(d.message())
+        d.accept()
+      })
+      await page.goto('/')
+      await page.locator('input[type=file][accept*=json]').setInputFiles({ name: 'o.json', mimeType: 'application/json', buffer: Buffer.from('{"openapi":"3.0.0","paths":{}}') })
+      await expect.poll(() => dialogs.length).toBe(1)
+      expect(dialogs[0]).toContain('Importer un OpenAPI')
+    })
+
+    test('exporte les types TypeScript et un client fetch', async ({ page }) => {
+      await open(page)
+      const download = await fromFileMenu(page, 'Client TypeScript')
+      expect(download.suggestedFilename()).toBe('api-client.ts')
+      const ts = await readFile((await download.path())!, 'utf-8')
+      expect(ts).toContain('export interface Product {')
+      expect(ts).toContain('export function createClient(')
+      expect(ts).toContain('async getProductsById(args: { id: string })')
+      expect(ts).toContain('Promise<Paginated<Product[]>>')
+    })
+
+    test('la sélection d’une carte n’apparaît pas dans l’image exportée', async ({ page }) => {
+      await open(page)
+      const card = nodes(page).filter({ hasText: '/products' }).first()
+      await card.locator('.font-mono').first().click()
+      const shadow = () => card.locator('> div').evaluate((el) => getComputedStyle(el).boxShadow)
+      expect(await shadow()).toMatch(/0px 0px 0px 2px/) // anneau de sélection
+      await page.locator('.vue-flow').first().evaluate((el) => el.classList.add('exporting')) // état pendant la capture
+      expect(await shadow()).not.toMatch(/0px 0px 0px 2px/)
+    })
+
+    test('les exports OpenAPI (YAML et JSON), .http et Markdown se téléchargent', async ({ page }) => {
+      await open(page)
+      const grab = async (name: string, file: string, menu = true) => {
+        const download = menu
+          ? await fromFileMenu(page, name)
+          : (await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name, exact: true }).click()]))[0]
+        expect(download.suggestedFilename()).toBe(file)
+        return readFile((await download.path())!, 'utf-8')
+      }
+      const yaml = await grab('OpenAPI', 'openapi.yaml', false) // bouton principal de l'en-tête
+      expect(yaml).toContain('openapi: "3.1.0"')
+      expect(yaml).toContain('"/products":')
+      expect(yaml).toContain('bearerAuth')
+
+      const json = JSON.parse(await grab('OpenAPI en JSON', 'openapi.json'))
+      expect(json.openapi).toBe('3.1.0')
+      expect(Object.keys(json.paths)).toEqual(['/products', '/products/{id}', '/orders', '/orders/{id}'])
+
+      expect(await grab('Requêtes .http', 'requests.http')).toContain('@baseUrl = https://api.boutique.dev')
+      expect(await grab('Documentation Markdown', 'api.md')).toContain('### `GET /products` — Lister les produits')
+    })
+
+    test('génère l’API depuis le MCD ouvert, puis Ctrl+Z la remplace par la précédente', async ({ page }) => {
+      page.on('dialog', (d) => d.accept())
+      await open(page)
+      const before = await text(page).inputValue()
+      await page.getByRole('button', { name: 'Depuis le MCD' }).click()
+      await expect.poll(async () => (await text(page).inputValue()) !== before).toBe(true)
+      const generated = await text(page).inputValue()
+      expect(generated).toMatch(/schema \w+Input/)
+      expect(generated).toMatch(/POST .*\[auth\]/)
+      await page.keyboard.press('Control+z')
+      await expect(text(page)).toHaveValue(before)
+    })
+
+    test('importer une API depuis le MCD propose de basculer, et le lien de partage la rouvre', async ({ page, browser }) => {
+      page.on('dialog', (d) => d.accept())
+      await page.goto('/')
+      const payload = JSON.stringify({ info: { title: 'Importée' }, resources: [], endpoints: [{ id: 'a', method: 'GET', path: '/ping', responses: [{ status: 200 }] }] })
+      await page.locator('input[type=file][accept*=json]').setInputFiles({ name: 'api.json', mimeType: 'application/json', buffer: Buffer.from(payload) })
+      await expect(page.getByRole('tab', { name: 'API REST', exact: true })).toHaveAttribute('aria-selected', 'true')
+      await expect(nodes(page).filter({ hasText: '/ping' })).toHaveCount(1)
+
+      await page.getByRole('button', { name: /Fichier/ }).click()
+      await page.getByRole('button', { name: /Partager par lien/ }).click()
+      const link = await page.locator('input[readonly]').inputValue()
+      expect(link).toContain('#share.api=')
+      const other = await browser.newContext()
+      const p2 = await other.newPage()
+      await p2.goto(link)
+      await expect(p2.getByRole('tab', { name: 'API REST', exact: true })).toHaveAttribute('aria-selected', 'true')
+      await expect(nodes(p2).filter({ hasText: '/ping' })).toHaveCount(1)
       await other.close()
     })
   })

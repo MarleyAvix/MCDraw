@@ -98,3 +98,45 @@ export function repairTree(items: TreeItem[]): void {
     }
   }
 }
+
+/**
+ * Mise en page en arbre de gauche à droite pour des éléments de hauteur variable : la racine est à gauche, chaque
+ * élément est centré en face de ses enfants, et aucun élément ne chevauche son voisin. Déterministe (ordre du tableau).
+ */
+export function layoutHorizontalTree<T extends TreeItem>(
+  items: T[],
+  heightOf: (item: T) => number,
+  width: number,
+  gap: { x: number; y: number },
+): Map<string, { x: number; y: number }> {
+  const out = new Map<string, { x: number; y: number }>()
+  let cursor = 0
+
+  /** Pose le sous-arbre de `item` ; renvoie l'ordonnée de son élément. */
+  const place = (item: T, depth: number): number => {
+    if (out.has(item.id)) return out.get(item.id)!.y // garde-fou contre un cycle
+    const h = heightOf(item)
+    const x = depth * (width + gap.x)
+    const start = cursor
+    out.set(item.id, { x, y: start })
+    const kids = childrenOf(items, item.id)
+    let y = start
+    if (kids.length) {
+      const ys = kids.map((k) => place(k, depth + 1))
+      const lastH = heightOf(kids[kids.length - 1])
+      y = (ys[0] + ys[ys.length - 1] + lastH) / 2 - h / 2
+      if (y < start) {
+        // L'élément est plus haut que le bloc de ses enfants : on décale tout le sous-arbre vers le bas.
+        const dy = start - y
+        for (const id of subtreeIds(items, item.id)) if (id !== item.id) out.get(id)!.y += dy
+        cursor += dy
+        y = start
+      }
+    }
+    out.set(item.id, { x, y })
+    cursor = Math.max(cursor, y + h + gap.y)
+    return y
+  }
+  for (const r of rootsOf(items)) place(r, 0)
+  return out
+}

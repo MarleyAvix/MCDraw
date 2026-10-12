@@ -3,7 +3,7 @@
 # MCDraw
 
 **Draw your data model. Get your database.**<br/>
-A light, fast, in-browser diagramming tool: Merise conceptual models (MCD) that turn into SQL, ORM code and test data — plus simple brainstorming diagrams such as site maps and mind maps.
+A light, fast, in-browser diagramming tool: Merise conceptual models (MCD) that turn into SQL, ORM code and test data — plus simple brainstorming diagrams such as site maps and mind maps — and REST API descriptions that export to OpenAPI.
 
 [🇬🇧 English](README.md) · [🇫🇷 Français](README.fr.md)
 
@@ -32,6 +32,7 @@ A light, fast, in-browser diagramming tool: Merise conceptual models (MCD) that 
 | **Database** (Merise) | MCD editor with cardinalities, relative identifiers (CIF), inheritance → computed **MLD**, **ERD** (crow's foot) and **UML** class views |
 | **Site map** | Type your pages as an indented list *or* draw the tree — both stay in sync. Export a **Markdown** list or a **`sitemap.xml`** (sitemaps.org) |
 | **Mind map** | Jot ideas as an indented list or grow the branches on the map. Balanced layout around the central idea, one colour per branch, collapsible branches. Export **Markdown** or **OPML** (XMind, MindNode, OmniOutliner…) |
+| **REST API** | Describe resources and routes (parameters, headers, body, responses, pagination, auth) as text or on the route tree; a design linter checks naming and HTTP codes. Export **OpenAPI 3.1** (YAML / JSON), a typed **TypeScript client**, a **`.http`** request file or **Markdown** docs — import an existing OpenAPI file, or generate the CRUD straight from your MCD |
 
 <table>
   <tr>
@@ -41,6 +42,12 @@ A light, fast, in-browser diagramming tool: Merise conceptual models (MCD) that 
   <tr>
     <td align="center"><sub>MLD: tables, primary and foreign keys</sub></td>
     <td align="center"><sub>Site map: one page per line, the indentation makes the tree</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/screenshots/api.png" alt="REST API: text on the left, route tree on the right" /></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><sub>REST API: routes written as text or drawn as a tree, exported to OpenAPI</sub></td>
   </tr>
 </table>
 
@@ -70,6 +77,15 @@ A light, fast, in-browser diagramming tool: Merise conceptual models (MCD) that 
 - Same live text ⇄ map sync as the site map, with a balanced layout (branches spread left and right of the central idea) and one colour per branch.
 - `Tab` adds a sub-idea, `Enter` an idea at the same level, `Space` collapses / expands a branch; **Up / Down** buttons reorder siblings, notes per idea, copy / paste of whole branches, search.
 - Three starter templates; export to **Markdown** or **OPML**.
+
+### REST API
+
+- Text ⇄ route tree, live and two-way: `schema User` blocks plus an indented list of paths and methods (`GET Lister [auth] [paginated] -> 200 User[], 404`), with request body, query parameters, headers and notes per response.
+- Two views: the **route tree** (one card per path, coloured method badges, lock for protected routes, **Up / Down** buttons to reorder paths and methods) and the **schemas** (cards linked by their references, with where each one is used).
+- **Design linter** (23 rules): duplicate routes, unknown schemas, verbs or capitals in paths, singular collections, missing `404` / `400` / `401`, `POST` without `201`, lists without pagination, public write routes… Click a remark to jump to the route.
+- **Generate from your MCD**: one resource and input schema per entity, the five CRUD routes, nested lists for 1–n relations, attach / detach routes for n–n associations and nested paths for relative identifiers (CIF). Undoable.
+- **Import an existing OpenAPI 3** file (JSON or YAML): schemas, `allOf`, nullable types, parameters, bodies, responses and security are converted; what cannot be represented (`oneOf`, free-form objects, `default` responses…) is simplified and listed in a report.
+- Exports: **OpenAPI 3.1** (YAML and JSON), a **TypeScript client** (`api-client.ts`: interfaces plus a dependency-free, typed `fetch` client with auth, pagination and `ApiError`), **ASP.NET Core** Minimal API endpoints (typed routes, bound parameters, auth and declared responses; bodies left for you to write), a **`.http`** file (VS Code REST Client, JetBrains) with sample bodies, **Markdown** documentation. Three developer-oriented starter templates (shop, tasks, authentication).
 
 ### Everywhere
 
@@ -123,7 +139,7 @@ The app is then served by nginx on <http://localhost:8080>.
 
 ## Tech stack
 
-[Vue 3](https://vuejs.org/) · TypeScript · [Pinia](https://pinia.vuejs.org/) · [Vue Flow](https://vueflow.dev/) · Tailwind CSS v4 · Vite · Vitest · Playwright · [lucide](https://lucide.dev/) icons · [`@faker-js/faker`](https://fakerjs.dev/).
+[Vue 3](https://vuejs.org/) · TypeScript · [Pinia](https://pinia.vuejs.org/) · [Vue Flow](https://vueflow.dev/) · Tailwind CSS v4 · Vite · Vitest · Playwright · [lucide](https://lucide.dev/) icons · [`@faker-js/faker`](https://fakerjs.dev/) · [`yaml`](https://eemeli.org/yaml/) (loaded only when importing an OpenAPI file).
 
 ## Architecture: adding a new diagram type
 
@@ -135,13 +151,14 @@ src/
 ├─ documents/
 │  ├─ mcd/        Database (Merise)
 │  ├─ sitemap/    Site map
-│  └─ mindmap/    Mind map
+│  ├─ mindmap/    Mind map
+│  └─ api/        REST API
 ├─ engine/        Pure logic: MCD → MLD, SQL, ORM, seed data, share links…
 ├─ composables/   History, persistence, canvas tools, file I/O…
 └─ components/    Canvas, panels and modals of the database type
 ```
 
-To add a type (org chart, flowchart…): create a folder in `src/documents/`, implement `DocumentType`, and register it in `src/documents/index.ts`. History, auto-save, JSON export, share links and search come for free.
+To add a type (org chart, flowchart, user journey…): create a folder in `src/documents/`, implement `DocumentType`, and register it in `src/documents/index.ts`. History, auto-save, JSON export, share links and search come for free.
 
 ## Contributing
 

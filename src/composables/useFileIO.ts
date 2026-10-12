@@ -47,6 +47,9 @@ export function useFileIO() {
       const raw = JSON.parse(await file.text())
       // Un fichier d'un autre type (un plan de site dans un MCD, ou l'inverse) : on propose de basculer plutôt que d'échouer.
       if (!type.value.accepts(raw)) {
+        if (typeof raw === 'object' && raw !== null && ('openapi' in raw || 'swagger' in raw)) {
+          return alert('Ce fichier est une description OpenAPI : ouvrez l’onglet « API REST » et utilisez « Fichier › Importer un OpenAPI… ».')
+        }
         const other = detectDocumentType(raw, type.value.id)
         if (!other) return alert('Ce fichier JSON ne correspond à aucun type de diagramme connu.')
         if (!confirm(`Ce fichier est de type « ${other.label} ». Basculer vers ce type et l'ouvrir ?`)) return
