@@ -32,7 +32,7 @@ Un outil de diagrammes léger et rapide, dans le navigateur : des modèles conce
 | **Base de données** (Merise) | Éditeur de MCD avec cardinalités, identifiant relatif (CIF), héritage → **MLD** calculé, vues **ERD** (pattes de corbeau) et **UML** (diagramme de classes) |
 | **Plan de site** | Saisissez vos pages en liste indentée *ou* dessinez l'arbre — les deux restent synchronisés. Export d'une liste **Markdown** ou d'un **`sitemap.xml`** (sitemaps.org) |
 | **Carte mentale** | Jetez vos idées en liste indentée ou faites pousser les branches sur la carte. Mise en page équilibrée autour de l'idée centrale, une couleur par branche, branches repliables. Export **Markdown** ou **OPML** (XMind, MindNode, OmniOutliner…) |
-| **API REST** | Décrivez ressources et routes (paramètres, en-têtes, corps, réponses, pagination, authentification) en texte ou sur l'arbre des routes ; un linter de conception vérifie les noms et les codes HTTP. Export **OpenAPI 3.1** (YAML / JSON), **client TypeScript** typé, fichier de requêtes **`.http`** ou documentation **Markdown** — import d'un fichier OpenAPI existant, ou génération du CRUD directement depuis votre MCD |
+| **API REST** | Décrivez ressources et routes (paramètres, en-têtes, corps, réponses, pagination, authentification) en texte ou sur l'arbre des routes ; un linter de conception vérifie les noms et les codes HTTP. Export **OpenAPI 3.1** (YAML / JSON), **client TypeScript** typé, routes **ASP.NET Core**, fichier de requêtes **`.http`** ou documentation **Markdown** — import d'un fichier OpenAPI existant, ou génération du CRUD directement depuis votre MCD |
 
 <table>
   <tr>
@@ -80,7 +80,7 @@ Un outil de diagrammes léger et rapide, dans le navigateur : des modèles conce
 
 ### API REST
 
-- Texte ⇄ arbre des routes, en direct et dans les deux sens : des blocs `schema User` puis une liste indentée de chemins et de méthodes (`GET Lister [auth] [paginated] -> 200 User[], 404`), avec corps de requête, paramètres de requête, en-têtes et note par réponse.
+- Texte ⇄ arbre des routes, en direct et dans les deux sens : des blocs `schema User` puis une liste indentée de chemins et de méthodes (`GET Lister [auth] [paginated] -> 200 User[], 404`), avec corps de requête, paramètres de requête, en-têtes et note par réponse, ainsi que groupes par route (`# users, admin`), description longue (`~ texte`) et drapeau `[deprecated]` (route barrée sur la carte, exportée en `tags` / `description` / `deprecated`).
 - Deux vues : l'**arbre des routes** (une carte par chemin, pastilles de méthodes colorées, cadenas pour les routes protégées, boutons **Monter / Descendre** pour réordonner chemins et méthodes) et les **schémas** (cartes reliées par leurs références, avec l'usage de chacun).
 - **Linter de conception** (23 règles) : routes en double, schémas inconnus, verbes ou majuscules dans les chemins, collections au singulier, `404` / `400` / `401` manquants, `POST` sans `201`, listes non paginées, routes d'écriture publiques… Un clic sur une remarque mène à la route.
 - **Génération depuis le MCD** : une ressource et son schéma d'entrée par entité, les cinq routes CRUD, les listes imbriquées des relations 1–n, les routes de rattachement des associations n–n et les chemins imbriqués des identifiants relatifs (CIF). Annulable.
