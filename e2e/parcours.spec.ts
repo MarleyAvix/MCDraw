@@ -84,7 +84,7 @@ test.describe('parcours principaux', () => {
       return { name: download.suggestedFilename(), bytes: await readFile((await download.path())!) }
     }
     await page.goto('/')
-    for (const [tab, file] of [['Plan de site', 'tree'], ['Carte mentale', 'map'], ['API REST', 'routes']] as const) {
+    for (const [tab, file] of [['Plan de site', 'tree'], ['Carte mentale', 'map'], ['Séquence', 'diagram'], ['API REST', 'routes']] as const) {
       await page.getByRole('tab', { name: tab, exact: true }).click()
       await expect(page.locator('.vue-flow__node').first()).toBeVisible()
       const png = await grab('Image PNG')
@@ -689,6 +689,127 @@ test.describe('parcours principaux', () => {
       await expect(p2.getByRole('tab', { name: 'API REST', exact: true })).toHaveAttribute('aria-selected', 'true')
       await expect(nodes(p2).filter({ hasText: '/ping' })).toHaveCount(1)
       await other.close()
+    })
+  })
+  test.describe('Séquence', () => {
+    const open = async (page: Page) => {
+      await page.goto('/')
+      await page.getByRole('tab', { name: 'Séquence', exact: true }).click()
+    }
+    const text = (page: Page) => page.getByLabel('Description textuelle du diagramme de séquence')
+    const diagram = (page: Page) => page.getByRole('img', { name: /Diagramme de séquence/ })
+    const item = (page: Page, label: string) => diagram(page).locator('g[data-id]').filter({ hasText: label }).first()
+
+    test('affiche le modèle de départ avec son texte', async ({ page }) => {
+      await open(page)
+      await expect(diagram(page)).toBeVisible()
+      await expect(diagram(page)).toContainText('Saisit e-mail et mot de passe')
+      await expect(diagram(page)).toContainText('mot de passe valide')
+      await expect(text(page)).toHaveValue(/title Connexion avec jeton/)
+    })
+
+    test('la saisie texte dessine le diagramme en direct et garde la dernière version valide en cas d’erreur', async ({ page }) => {
+      await open(page)
+      await text(page).fill('Client ->> API: Salut')
+      await expect(diagram(page)).toContainText('Salut')
+      await text(page).fill('Client ->> API: Salut\nalt cas\nAPI -->> Client: Oui')
+      await expect(page.getByText('n\'est pas fermé')).toBeVisible()
+      await expect(diagram(page)).not.toContainText('Oui')
+      await text(page).fill('Client ->> API: Salut\nalt cas\nAPI -->> Client: Oui\nend')
+      await expect(diagram(page)).toContainText('Oui')
+    })
+
+    test('un diagramme Mermaid collé tel quel est compris', async ({ page }) => {
+      await open(page)
+      await text(page).fill(
+        ['sequenceDiagram', '    participant A as Alice', '    participant B as Bob', '    A->>+B: Salut Bob', '    B-->>-A: Salut Alice', '    Note right of B: réfléchit', '    loop Chaque minute', '        A-)B: ping', '    end'].join('\n'),
+      )
+      await expect(diagram(page)).toContainText('Salut Alice')
+      await expect(diagram(page)).toContainText('Chaque minute')
+      await expect(diagram(page)).toContainText('réfléchit')
+      await expect(page.getByText('Ligne non reconnue')).toHaveCount(0)
+    })
+
+    test('le bouton Message ajoute un message, ouvre la fenêtre, et le texte suit', async ({ page }) => {
+      await open(page)
+      await page.getByRole('button', { name: 'Message', exact: true }).click()
+      const dialog = page.getByRole('dialog')
+      await expect(dialog).toBeVisible()
+      await dialog.getByLabel('Texte du message').fill('Bonjour le monde')
+      await dialog.getByRole('button', { name: 'Enregistrer' }).click()
+      await expect(diagram(page)).toContainText('Bonjour le monde')
+      await expect(text(page)).toHaveValue(/: Bonjour le monde/)
+      await page.keyboard.press('Control+z')
+      await expect(diagram(page)).not.toContainText('Bonjour le monde')
+    })
+
+    test('le bouton Bloc enveloppe les éléments sélectionnés', async ({ page }) => {
+      await open(page)
+      await text(page).fill('A ->> B: un\nB -->> A: deux')
+      await expect(diagram(page)).toContainText('deux')
+      await item(page, 'un').click()
+      await page.getByRole('button', { name: 'Bloc', exact: true }).click()
+      const dialog = page.getByRole('dialog')
+      await dialog.getByLabel('Type de bloc').selectOption('loop')
+      await dialog.getByLabel('Libellé de la section 1').fill('chaque jour')
+      await dialog.getByRole('button', { name: 'Enregistrer' }).click()
+      await expect(text(page)).toHaveValue(/loop chaque jour\n {2}A ->> B: un\nend\nB -->> A: deux/)
+    })
+
+    test('Monter réordonne, Suppr supprime', async ({ page }) => {
+      await open(page)
+      await text(page).fill('A ->> B: un\nB -->> A: deux')
+      await expect(diagram(page)).toContainText('deux')
+      await item(page, 'deux').click()
+      await page.getByRole('button', { name: 'Monter', exact: true }).click()
+      await expect(text(page)).toHaveValue(/B -->> A: deux\nA ->> B: un/)
+      await page.keyboard.press('Delete')
+      await expect(diagram(page)).not.toContainText('deux')
+      await expect(diagram(page)).toContainText('un')
+    })
+
+    test('renommer un participant met à jour les messages', async ({ page }) => {
+      await open(page)
+      await diagram(page).locator('g[data-id="p:API"]').first().dblclick()
+      const dialog = page.getByRole('dialog')
+      await dialog.getByLabel('Nom du participant').fill('Serveur')
+      await dialog.getByRole('button', { name: 'Enregistrer' }).click()
+      await expect(text(page)).toHaveValue(/Web ->>\+ Serveur: POST \/auth\/login/)
+      await expect(text(page)).not.toHaveValue(/\bAPI\b/)
+    })
+
+    test('un nom de participant déjà pris est refusé', async ({ page }) => {
+      await open(page)
+      await diagram(page).locator('g[data-id="p:API"]').first().dblclick()
+      const dialog = page.getByRole('dialog')
+      await dialog.getByLabel('Nom du participant').fill('Web')
+      await expect(dialog.getByRole('alert')).toContainText('existe déjà')
+      await expect(dialog.getByRole('button', { name: 'Enregistrer' })).toBeDisabled()
+    })
+
+    test('les exports Mermaid et PlantUML se téléchargent', async ({ page }) => {
+      await open(page)
+      const grab = async (name: string, file: string) => {
+        const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name, exact: true }).click()])
+        expect(download.suggestedFilename()).toBe(file)
+        return readFile((await download.path())!, 'utf-8')
+      }
+      const mermaid = await grab('Mermaid', 'sequence.mmd')
+      expect(mermaid).toContain('sequenceDiagram')
+      expect(mermaid).toContain('autonumber')
+      expect(mermaid).toContain('Web->>+API: POST /auth/login')
+      const puml = await grab('PlantUML', 'sequence.puml')
+      expect(puml).toContain('@startuml')
+      expect(puml).toContain('Web -> API ++ : POST /auth/login')
+    })
+
+    test('la sélection n’apparaît pas dans l’image exportée', async ({ page }) => {
+      await open(page)
+      await item(page, 'POST /auth/login').click()
+      const ring = diagram(page).locator('.seq-sel-rect').first()
+      await expect(ring).toBeVisible()
+      await page.locator('.vue-flow').first().evaluate((el) => el.classList.add('exporting')) // état pendant la capture
+      await expect(ring).toBeHidden()
     })
   })
 })

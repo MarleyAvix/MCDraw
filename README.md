@@ -3,7 +3,7 @@
 # MCDraw
 
 **Draw your data model. Get your database.**<br/>
-A light, fast, in-browser diagramming tool: Merise conceptual models (MCD) that turn into SQL, ORM code and test data — plus simple brainstorming diagrams such as site maps and mind maps — and REST API descriptions that export to OpenAPI.
+A light, fast, in-browser diagramming tool: Merise conceptual models (MCD) that turn into SQL, ORM code and test data — plus simple brainstorming diagrams such as site maps and mind maps — REST API descriptions that export to OpenAPI, and sequence diagrams that export to Mermaid and PlantUML.
 
 [🇬🇧 English](README.md) · [🇫🇷 Français](README.fr.md)
 
@@ -32,6 +32,7 @@ A light, fast, in-browser diagramming tool: Merise conceptual models (MCD) that 
 | **Database** (Merise) | MCD editor with cardinalities, relative identifiers (CIF), inheritance → computed **MLD**, **ERD** (crow's foot) and **UML** class views |
 | **Site map** | Type your pages as an indented list *or* draw the tree — both stay in sync. Export a **Markdown** list or a **`sitemap.xml`** (sitemaps.org) |
 | **Mind map** | Jot ideas as an indented list or grow the branches on the map. Balanced layout around the central idea, one colour per branch, collapsible branches. Export **Markdown** or **OPML** (XMind, MindNode, OmniOutliner…) |
+| **Sequence** | Write the exchanges between services as text (Mermaid-like syntax — paste an existing diagram) *or* build them with buttons: participants, messages, notes and every block (`alt`, `opt`, `loop`, `par`, `critical`, `break`), activation bars, numbering. Export **Mermaid** (README, GitLab, Notion) or **PlantUML** |
 | **REST API** | Describe resources and routes (parameters, headers, body, responses, pagination, auth) as text or on the route tree; a design linter checks naming and HTTP codes. Export **OpenAPI 3.1** (YAML / JSON), a typed **TypeScript client**, **ASP.NET Core** endpoints, a **`.http`** request file or **Markdown** docs — import an existing OpenAPI file, or generate the CRUD straight from your MCD |
 
 <table>
@@ -48,6 +49,12 @@ A light, fast, in-browser diagramming tool: Merise conceptual models (MCD) that 
   </tr>
   <tr>
     <td colspan="2" align="center"><sub>REST API: routes written as text or drawn as a tree, exported to OpenAPI</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/screenshots/sequence.png" alt="Sequence diagram: text on the left, diagram on the right" /></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><sub>Sequence: one line per message, alternatives and activations, exported to Mermaid or PlantUML</sub></td>
   </tr>
 </table>
 
@@ -86,6 +93,14 @@ A light, fast, in-browser diagramming tool: Merise conceptual models (MCD) that 
 - **Generate from your MCD**: one resource and input schema per entity, the five CRUD routes, nested lists for 1–n relations, attach / detach routes for n–n associations and nested paths for relative identifiers (CIF). Undoable.
 - **Import an existing OpenAPI 3** file (JSON or YAML): schemas, `allOf`, nullable types, parameters, bodies, responses and security are converted; what cannot be represented (`oneOf`, free-form objects, `default` responses…) is simplified and listed in a report.
 - Exports: **OpenAPI 3.1** (YAML and JSON), a **TypeScript client** (`api-client.ts`: interfaces plus a dependency-free, typed `fetch` client with auth, pagination and `ApiError`), **ASP.NET Core** Minimal API endpoints (typed routes, bound parameters, auth and declared responses; bodies left for you to write), a **`.http`** file (VS Code REST Client, JetBrains) with sample bodies, **Markdown** documentation. Three developer-oriented starter templates (shop, tasks, authentication).
+
+### Sequence diagram
+
+- Text ⇄ diagram, live and two-way, in a syntax close to Mermaid: `Client ->> API: POST /login`, `->>` call, `-->>` reply, `-)` async, `-x` lost, `->>+` / `-->>-` to open / close an activation, `Note over A, B: …`. Pasting a Mermaid `sequenceDiagram` works as is; a participant you mention is created for you.
+- **Every block**: `alt` / `else`, `opt`, `loop`, `par` / `and`, `critical` / `option`, `break`, nested and closed by `end`.
+- **Buttons as well as text**: add a participant, message, note or block; the *Block* button wraps the selected messages; **Up / Down / Left / Right** reorder; double-click an element to edit it (renaming a participant updates its messages); `Delete` removes it.
+- Actor and database participants, optional display labels, message numbering, multi-line texts (`<br>`).
+- Exports: **Mermaid** (`.mmd`, copy to clipboard, or a Markdown file with the fenced block) and **PlantUML** (`.puml`). Three starter templates (login, checkout, sync with recovery).
 
 ### Everywhere
 
@@ -152,7 +167,8 @@ src/
 │  ├─ mcd/        Database (Merise)
 │  ├─ sitemap/    Site map
 │  ├─ mindmap/    Mind map
-│  └─ api/        REST API
+│  ├─ api/        REST API
+│  └─ sequence/   Sequence diagram
 ├─ engine/        Pure logic: MCD → MLD, SQL, ORM, seed data, share links…
 ├─ composables/   History, persistence, canvas tools, file I/O…
 └─ components/    Canvas, panels and modals of the database type

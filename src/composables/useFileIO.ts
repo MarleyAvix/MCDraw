@@ -17,7 +17,8 @@ export function downloadBlob(content: string, type: string, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-const SVG_PROPS = ['stroke', 'stroke-width', 'stroke-dasharray', 'stroke-linecap', 'stroke-linejoin', 'fill', 'opacity']
+const SVG_PROPS = ['display', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-linecap', 'stroke-linejoin', 'fill', 'opacity']
+const TEXT_PROPS = ['fill', 'font-size', 'font-weight', 'font-family', 'text-anchor']
 
 /**
  * html-to-image n'embarque pas les règles CSS appliquées aux éléments SVG (liens, flèches, pattes…) :
@@ -25,11 +26,11 @@ const SVG_PROPS = ['stroke', 'stroke-width', 'stroke-dasharray', 'stroke-linecap
  */
 function inlineSvgStyles(root: HTMLElement) {
   const saved: [SVGElement, string | null][] = []
-  root.querySelectorAll<SVGElement>('path, line, polygon, polyline, circle, ellipse, rect').forEach((n) => {
+  root.querySelectorAll<SVGElement>('path, line, polygon, polyline, circle, ellipse, rect, text, tspan').forEach((n) => {
     if (n.closest('.vue-flow__background, .vue-flow__minimap')) return
     saved.push([n, n.getAttribute('style')])
     const cs = getComputedStyle(n)
-    for (const p of SVG_PROPS) n.style.setProperty(p, cs.getPropertyValue(p))
+    for (const p of n.tagName === 'text' || n.tagName === 'tspan' ? TEXT_PROPS : SVG_PROPS) n.style.setProperty(p, cs.getPropertyValue(p))
   })
   return () => saved.forEach(([n, s]) => (s === null ? n.removeAttribute('style') : n.setAttribute('style', s)))
 }

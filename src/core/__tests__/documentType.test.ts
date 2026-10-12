@@ -13,8 +13,8 @@ beforeEach(() => {
 })
 
 describe('registre des types de document', () => {
-  it('enregistre le MCD en premier (type ouvert par défaut) puis le sitemap, la carte mentale et l’API REST', () => {
-    expect(documentTypes().map((t) => t.id)).toEqual(['mcd', 'sitemap', 'mindmap', 'api'])
+  it('enregistre le MCD en premier (type ouvert par défaut) puis le sitemap, la carte mentale, l’API REST et le diagramme de séquence', () => {
+    expect(documentTypes().map((t) => t.id)).toEqual(['mcd', 'sitemap', 'mindmap', 'api', 'sequence'])
     expect(getDocumentType('inconnu')).toBeUndefined()
   })
 
@@ -44,6 +44,7 @@ describe('registre des types de document', () => {
     ['sitemap', 'tree', { pages: [] }],
     ['mindmap', 'map', { nodes: [] }],
     ['api', 'routes', { info: {}, resources: [], endpoints: [] }],
+    ['sequence', 'diagram', { participants: [], items: [] }],
   ])('%s : l’API de document est complète', async (id, viewId, empty) => {
     const doc = getDocumentType(id)!.useDocument()
     expect(doc.view.value).toBe(viewId)
@@ -67,6 +68,7 @@ describe('détection du type d’un fichier importé', () => {
   const plan = { pages: [] }
   const carte = { nodes: [] }
   const rest = { info: {}, resources: [], endpoints: [] }
+  const seq = { participants: [], items: [] }
 
   it('chaque type reconnaît ses données et pas celles des autres', () => {
     expect(getDocumentType('mcd')!.accepts(mcd)).toBe(true)
@@ -79,10 +81,13 @@ describe('détection du type d’un fichier importé', () => {
     expect(getDocumentType('api')!.accepts(rest)).toBe(true)
     for (const other of [mcd, plan, carte]) expect(getDocumentType('api')!.accepts(other)).toBe(false)
     for (const id of ['mcd', 'sitemap', 'mindmap']) expect(getDocumentType(id)!.accepts(rest)).toBe(false)
+    expect(getDocumentType('sequence')!.accepts(seq)).toBe(true)
+    for (const other of [mcd, plan, carte, rest]) expect(getDocumentType('sequence')!.accepts(other)).toBe(false)
+    for (const id of ['mcd', 'sitemap', 'mindmap', 'api']) expect(getDocumentType(id)!.accepts(seq)).toBe(false)
   })
 
   it('refuse ce qui n’a pas la forme d’un objet', () => {
-    for (const bad of [null, undefined, 'texte', 42, [], { pages: 'non' }, { nodes: 'non' }, { endpoints: 'non' }]) {
+    for (const bad of [null, undefined, 'texte', 42, [], { pages: 'non' }, { nodes: 'non' }, { endpoints: 'non' }, { participants: 'non', items: [] }]) {
       for (const t of documentTypes()) expect(t.accepts(bad)).toBe(false)
     }
   })
@@ -92,6 +97,7 @@ describe('détection du type d’un fichier importé', () => {
     expect(detectDocumentType(mcd, 'sitemap')?.id).toBe('mcd')
     expect(detectDocumentType(carte, 'mcd')?.id).toBe('mindmap')
     expect(detectDocumentType(rest, 'mcd')?.id).toBe('api')
+    expect(detectDocumentType(seq, 'mcd')?.id).toBe('sequence')
     expect(detectDocumentType({ autre: 1 })).toBeUndefined()
   })
 })

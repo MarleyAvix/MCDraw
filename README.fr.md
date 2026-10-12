@@ -3,7 +3,7 @@
 # MCDraw
 
 **Dessinez votre modèle de données. Obtenez votre base.**<br/>
-Un outil de diagrammes léger et rapide, dans le navigateur : des modèles conceptuels Merise (MCD) qui deviennent du SQL, du code d'ORM et des données de test — et des schémas de brainstorming simples comme le plan de site et la carte mentale — et des descriptions d'API REST qui s'exportent en OpenAPI.
+Un outil de diagrammes léger et rapide, dans le navigateur : des modèles conceptuels Merise (MCD) qui deviennent du SQL, du code d'ORM et des données de test — et des schémas de brainstorming simples comme le plan de site et la carte mentale — des descriptions d'API REST qui s'exportent en OpenAPI — et des diagrammes de séquence qui s'exportent en Mermaid et PlantUML.
 
 [🇬🇧 English](README.md) · [🇫🇷 Français](README.fr.md)
 
@@ -32,6 +32,7 @@ Un outil de diagrammes léger et rapide, dans le navigateur : des modèles conce
 | **Base de données** (Merise) | Éditeur de MCD avec cardinalités, identifiant relatif (CIF), héritage → **MLD** calculé, vues **ERD** (pattes de corbeau) et **UML** (diagramme de classes) |
 | **Plan de site** | Saisissez vos pages en liste indentée *ou* dessinez l'arbre — les deux restent synchronisés. Export d'une liste **Markdown** ou d'un **`sitemap.xml`** (sitemaps.org) |
 | **Carte mentale** | Jetez vos idées en liste indentée ou faites pousser les branches sur la carte. Mise en page équilibrée autour de l'idée centrale, une couleur par branche, branches repliables. Export **Markdown** ou **OPML** (XMind, MindNode, OmniOutliner…) |
+| **Séquence** | Écrivez les échanges entre services en texte (syntaxe proche de Mermaid — collez un diagramme existant) *ou* construisez-les avec des boutons : participants, messages, notes et tous les blocs (`alt`, `opt`, `loop`, `par`, `critical`, `break`), barres d'activation, numérotation. Export **Mermaid** (README, GitLab, Notion) ou **PlantUML** |
 | **API REST** | Décrivez ressources et routes (paramètres, en-têtes, corps, réponses, pagination, authentification) en texte ou sur l'arbre des routes ; un linter de conception vérifie les noms et les codes HTTP. Export **OpenAPI 3.1** (YAML / JSON), **client TypeScript** typé, routes **ASP.NET Core**, fichier de requêtes **`.http`** ou documentation **Markdown** — import d'un fichier OpenAPI existant, ou génération du CRUD directement depuis votre MCD |
 
 <table>
@@ -48,6 +49,12 @@ Un outil de diagrammes léger et rapide, dans le navigateur : des modèles conce
   </tr>
   <tr>
     <td colspan="2" align="center"><sub>API REST : routes écrites en texte ou dessinées en arbre, exportées en OpenAPI</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/screenshots/sequence.png" alt="Diagramme de séquence : texte à gauche, diagramme à droite" /></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><sub>Séquence : une ligne par message, alternatives et activations, exportées en Mermaid ou PlantUML</sub></td>
   </tr>
 </table>
 
@@ -86,6 +93,14 @@ Un outil de diagrammes léger et rapide, dans le navigateur : des modèles conce
 - **Génération depuis le MCD** : une ressource et son schéma d'entrée par entité, les cinq routes CRUD, les listes imbriquées des relations 1–n, les routes de rattachement des associations n–n et les chemins imbriqués des identifiants relatifs (CIF). Annulable.
 - **Import d'un fichier OpenAPI 3 existant** (JSON ou YAML) : schémas, `allOf`, types nullables, paramètres, corps, réponses et sécurité sont convertis ; ce qui ne se représente pas (`oneOf`, objets libres, réponses `default`…) est simplifié et listé dans un compte rendu.
 - Exports : **OpenAPI 3.1** (YAML et JSON), **client TypeScript** (`api-client.ts` : interfaces et client `fetch` typé sans dépendance, avec authentification, pagination et `ApiError`), routes **ASP.NET Core** (Minimal API : chemins typés, paramètres liés, authentification et réponses déclarées, corps à écrire), fichier **`.http`** (REST Client de VS Code, JetBrains) avec corps d'exemple, documentation **Markdown**. Trois modèles de départ orientés développement (boutique, tâches, authentification).
+
+### Diagramme de séquence
+
+- Texte ⇄ diagramme, en direct et dans les deux sens, dans une syntaxe proche de Mermaid : `Client ->> API: POST /login`, `->>` appel, `-->>` retour, `-)` asynchrone, `-x` perdu, `->>+` / `-->>-` pour ouvrir / fermer une activation, `Note over A, B: …`. Un `sequenceDiagram` Mermaid collé tel quel fonctionne ; un participant cité est créé automatiquement.
+- **Tous les blocs** : `alt` / `else`, `opt`, `loop`, `par` / `and`, `critical` / `option`, `break`, imbriqués et fermés par `end`.
+- **Des boutons en plus du texte** : ajouter un participant, un message, une note ou un bloc ; le bouton *Bloc* enveloppe les messages sélectionnés ; **Monter / Descendre / Gauche / Droite** réordonnent ; double-clic pour modifier un élément (renommer un participant met à jour ses messages) ; `Suppr` le retire.
+- Participants de type acteur ou base de données, libellés affichés facultatifs, numérotation des messages, textes sur plusieurs lignes (`<br>`).
+- Exports : **Mermaid** (`.mmd`, copie dans le presse-papiers, ou fichier Markdown avec le bloc) et **PlantUML** (`.puml`). Trois modèles de départ (connexion, commande, synchronisation avec reprise).
 
 ### Partout
 
@@ -152,7 +167,8 @@ src/
 │  ├─ mcd/        Base de données (Merise)
 │  ├─ sitemap/    Plan de site
 │  ├─ mindmap/    Carte mentale
-│  └─ api/        API REST
+│  ├─ api/        API REST
+│  └─ sequence/   Diagramme de séquence
 ├─ engine/        logique pure : MCD → MLD, SQL, ORM, données de test, liens de partage…
 ├─ composables/   historique, sauvegarde, outils du canvas, import/export de fichiers…
 └─ components/    canvas, panneaux et fenêtres du type base de données

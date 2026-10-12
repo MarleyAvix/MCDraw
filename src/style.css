@@ -127,3 +127,11 @@ input[type='text'], input:not([type]) { cursor: text; }
 .tool-pan .vue-flow__pane, .tool-pan .vue-flow__pane.draggable { cursor: grab; }
 .tool-pan .vue-flow__pane.dragging { cursor: grabbing; }
 :root .vue-flow__controls-button.tool-active { background: var(--color-indigo-100); color: var(--color-indigo-700); }
+
+/* Diagramme de séquence : surbrillance de la sélection et de la recherche (absente des images exportées). */
+.seq-sel-rect { fill: rgb(99 102 241 / 0.1); stroke: #6366f1; }
+.seq-flash-rect { fill: rgb(245 158 11 / 0.18); stroke: #f59e0b; animation: seq-flash 0.7s ease-in-out 3; }
+@keyframes seq-flash { 50% { opacity: 0.25; } }
+.exporting .seq-sel-rect, .exporting .seq-flash-rect { display: none; }
+/* Le diagramme de séquence est un seul nœud non sélectionnable : Vue Flow le rendrait sinon insensible à la souris, alors que ses éléments se cliquent. */
+.vue-flow__node-sequence { pointer-events: all !important; }

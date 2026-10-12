@@ -20,7 +20,7 @@ export interface SearchHit {
   nodeId: string
   label: string
   context: string
-  kind: 'entity' | 'relation' | 'table' | 'attribute' | 'page' | 'idea' | 'route' | 'resource'
+  kind: 'entity' | 'relation' | 'table' | 'attribute' | 'page' | 'idea' | 'route' | 'resource' | 'message' | 'participant' | 'note' | 'block'
 }
 
 /** Ce que le shell sait faire d'un document, quel que soit son type. Chaque type l'implémente avec son propre store. */
