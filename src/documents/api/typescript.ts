@@ -155,7 +155,8 @@ export function apiToTypeScript(api: ApiDocument): string {
     const call = `request('${e.method}', ${path}${init.length ? `, { ${init.join(', ')} }` : ''})`
     const defaulted = shape.args && !shape.required ? ' = {}' : ''
     const summary = [e.summary, `${e.method} ${e.path}`].filter(Boolean).join(' — ').replace(/\*\//g, '*\\/')
-    const lines = [`    /** ${summary} */`]
+    const extra = [e.description, e.deprecated ? '@deprecated' : ''].filter(Boolean).map((t) => String(t).replace(/\*\//g, '*\\/'))
+    const lines = extra.length ? ['    /**', `     * ${summary}`, ...extra.map((t) => `     * ${t}`), '     */'] : [`    /** ${summary} */`]
     lines.push(`    async ${names.get(e.id)}(${shape.args ? `args: ${shape.args}${defaulted}` : ''}): Promise<${returns}> {`)
     if (e.paginated && ok) {
       lines.push(

@@ -4,6 +4,7 @@
  * simplifié et signalé dans `notes`, jamais refusé. Les textes sont ramenés sur une ligne, car la saisie texte l'exige.
  */
 import {
+  defaultTag,
   isMethod,
   isParamType,
   normalizePath,
@@ -44,7 +45,7 @@ export function oneLine(s: unknown, max = 200): string {
     .replace(/\s+/g, ' ')
     .replace(/(^|\s)--(?=\s|$)/g, '$1–')
     .replace(/->/g, '→')
-    .replace(/\[(auth|paginated)\]/gi, '($1)')
+    .replace(/\[(auth|paginated|deprecated)\]/gi, '($1)')
     .trim()
   return t.length > max ? `${t.slice(0, max - 1).trimEnd()}…` : t
 }
@@ -343,11 +344,19 @@ export function openApiToApi(raw: unknown, makeId: () => string): { api: ApiDocu
       const sec = op.security !== undefined ? op.security : raw.security
       firstSecurity ??= firstUsed(sec)
       const summary = oneLine(op.summary) || oneLine(strOf(op.description).split(/(?<=[.!?])\s|\n/)[0], 120)
+      // La description n'est conservée que si elle apporte plus que le résumé (sinon elle l'a déjà fourni).
+      const description = op.summary !== undefined ? oneLine(op.description, 500) : ''
+      const rawTags = (Array.isArray(op.tags) ? op.tags : []).map((t) => oneLine(t, 60).replace(/,/g, ' ')).filter(Boolean)
+      // Un groupe identique à celui que le chemin donne déjà n'est pas une information : il est déduit à l'export.
+      const tags = rawTags.length === 1 && rawTags[0] === defaultTag(path) ? [] : [...new Set(rawTags)]
       endpoints.push({
         id: makeId(),
         method,
         path,
         ...(summary ? { summary } : {}),
+        ...(description && description !== summary ? { description } : {}),
+        ...(tags.length ? { tags } : {}),
+        ...(op.deprecated === true ? { deprecated: true } : {}),
         ...(requires(sec) ? { auth: true } : {}),
         ...(paginated ? { paginated: true } : {}),
         params,

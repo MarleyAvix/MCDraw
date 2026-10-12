@@ -3,7 +3,7 @@
  * avec ses paramètres, son corps et ses réponses.
  */
 import { walkTree } from '../../core/tree'
-import { statusText, type ApiDocument, type ApiEndpoint } from './model'
+import { statusText, tagsOf, type ApiDocument, type ApiEndpoint } from './model'
 import { buildPathTree } from './pathTree'
 import { sampleOf } from './sample'
 
@@ -15,7 +15,9 @@ const AUTH_LABEL = { bearer: 'jeton Bearer (JWT)', apiKey: 'clé d’API (en-tê
 
 function endpointSection(e: ApiEndpoint, api: ApiDocument): string[] {
   const out = [`### ${code(`${e.method} ${e.path}`)}${e.summary ? ` — ${e.summary}` : ''}`, '']
-  const flags = [e.auth ? `Authentification requise${api.info.auth ? ` (${AUTH_LABEL[api.info.auth]})` : ''}` : '', e.paginated ? 'Liste paginée (`page`, `limit`, en-tête de réponse `X-Total-Count`)' : ''].filter(Boolean)
+  if (e.deprecated) out.push('> **Obsolète** : cette route ne doit plus être utilisée.', '')
+  if (e.description) out.push(e.description, '')
+  const flags = [e.auth ? `Authentification requise${api.info.auth ? ` (${AUTH_LABEL[api.info.auth]})` : ''}` : '', e.paginated ? 'Liste paginée (`page`, `limit`, en-tête de réponse `X-Total-Count`)' : '', e.tags?.length ? `Groupes : ${tagsOf(e).join(', ')}` : ''].filter(Boolean)
   if (flags.length) out.push(flags.join(' · '), '')
 
   const params = [

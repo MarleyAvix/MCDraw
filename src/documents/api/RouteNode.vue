@@ -42,7 +42,7 @@ const problems = computed(() => {
           @click.stop="store.editingEndpointId = e.id"
         >
           <span class="w-14 shrink-0 rounded px-1 text-center font-mono text-[11px] font-bold" :style="methodBadgeStyle(e.method)">{{ e.method }}</span>
-          <span class="min-w-0 flex-1 truncate text-xs text-slate-600">{{ e.summary }}</span>
+          <span class="min-w-0 flex-1 truncate text-xs text-slate-600" :class="e.deprecated ? 'line-through opacity-60' : ''" :title="e.deprecated ? 'Route obsolète' : undefined">{{ e.summary }}</span>
           <Layers v-if="e.paginated" :size="12" class="shrink-0 text-slate-400" title="Liste paginée" />
           <Lock v-if="e.auth" :size="12" class="shrink-0 text-amber-600" title="Authentification requise" />
         </button>

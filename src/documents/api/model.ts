@@ -64,6 +64,12 @@ export interface ApiEndpoint {
   /** Chemin normalisé : `/users/{id}`. Les paramètres de chemin sont décrits dans `params`. */
   path: string
   summary?: string
+  /** Explication plus longue que le résumé. */
+  description?: string
+  /** Groupes de la route (OpenAPI `tags`). Absents : le premier segment fixe du chemin sert de groupe. */
+  tags?: string[]
+  /** Route obsolète, à ne plus utiliser. */
+  deprecated?: boolean
   /** La route exige l'authentification déclarée dans `info.auth`. */
   auth?: boolean
   /** Liste paginée : ajoute les paramètres `page` et `limit` et l'en-tête de réponse `X-Total-Count`. */
@@ -216,6 +222,11 @@ export function pathParams(path: string, types: Record<string, string | undefine
 }
 
 /** Clé qui identifie une route, indépendamment de son identifiant technique. */
+/** Groupe par défaut d'une route : son premier segment fixe (`/users/{id}` → `users`). */
+export const defaultTag = (path: string) => segmentsOf(path).find((s) => !isParamSegment(s))
+/** Groupes effectifs d'une route : ceux déclarés, sinon celui déduit du chemin. */
+export const tagsOf = (e: Pick<ApiEndpoint, 'path' | 'tags'>): string[] => (e.tags?.length ? e.tags : [defaultTag(e.path)].filter((t): t is string => !!t))
+
 export const routeKey = (e: Pick<ApiEndpoint, 'method' | 'path'>) => `${e.method} ${pathShape(e.path)}`
 
 // --- Validation d'une source externe -------------------------------------------
@@ -295,12 +306,16 @@ export function sanitizeApi(raw: unknown, makeId: () => string): ApiDocument {
       responses.push({ status, ...(type ? { type } : {}), ...(optStr(x.description) ? { description: optStr(x.description) } : {}) })
     }
 
+    const tags = [...new Set((Array.isArray(r.tags) ? r.tags : []).map((t) => str(t).trim()).filter((t) => t && !/[,\n]/.test(t)))]
     const bodyType = isRecord(r.body) ? normalizeType(str(r.body.type)) : null
     endpoints.push({
       id: idOf(r.id),
       method,
       path,
       ...(optStr(r.summary) ? { summary: optStr(r.summary) } : {}),
+      ...(optStr(r.description) ? { description: optStr(r.description) } : {}),
+      ...(tags.length ? { tags } : {}),
+      ...(r.deprecated === true ? { deprecated: true } : {}),
       ...(r.auth === true ? { auth: true } : {}),
       ...(r.paginated === true ? { paginated: true } : {}),
       params,

@@ -6,6 +6,7 @@ import {
   isSuccess,
   parseTypeExpr,
   segmentsOf,
+  tagsOf,
   statusText,
   isParamSegment,
   type ApiDocument,
@@ -84,7 +85,7 @@ export function buildOpenApi(api: ApiDocument): Json {
   for (const e of api.endpoints) {
     const declared = new Set(e.params.map((p) => `${p.in}:${p.name}`))
     const params = [...e.params, ...(e.paginated ? PAGINATION.filter((p) => !declared.has(`query:${p.name}`)) : [])]
-    const tag = segmentsOf(e.path).find((s) => !isParamSegment(s))
+    const tags = tagsOf(e)
 
     const responses: Record<string, Json> = {}
     const list: ApiResponse[] = e.responses.length ? e.responses : [{ status: 200 }]
@@ -101,7 +102,9 @@ export function buildOpenApi(api: ApiDocument): Json {
     const op: Json = {
       operationId: ids.get(e.id),
       ...(e.summary ? { summary: e.summary } : {}),
-      ...(tag ? { tags: [tag] } : {}),
+      ...(e.description ? { description: e.description } : {}),
+      ...(tags.length ? { tags } : {}),
+      ...(e.deprecated ? { deprecated: true } : {}),
       ...(params.length ? { parameters: params.map(parameter) } : {}),
       ...(e.body ? { requestBody: { required: true, ...(e.body.description ? { description: e.body.description } : {}), content: { 'application/json': { schema: jsonSchemaOf(e.body.type) } } } } : {}),
       responses,

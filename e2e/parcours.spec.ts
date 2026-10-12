@@ -458,6 +458,19 @@ test.describe('parcours principaux', () => {
       await expect(nodes(page)).toHaveCount(3) // le diagramme garde la dernière version valide
     })
 
+    test('description, groupes et obsolescence se saisissent dans la fenêtre et passent dans le texte', async ({ page }) => {
+      await open(page)
+      await page.getByTitle('Modifier GET /products', { exact: true }).click()
+      const dialog = page.getByRole('dialog')
+      await dialog.getByLabel('Groupes').fill('Catalogue, Public')
+      await dialog.getByPlaceholder('Explication plus longue (facultatif)').fill('Tous les produits en vente.')
+      await dialog.getByLabel('Obsolète').check()
+      await dialog.getByRole('button', { name: 'Enregistrer' }).click()
+      await expect(text(page)).toHaveValue(/\[deprecated\]/)
+      await expect(text(page)).toHaveValue(/# Catalogue, Public/)
+      await expect(text(page)).toHaveValue(/~ Tous les produits en vente\./)
+    })
+
     test('modifier une route dans la fenêtre d’édition met à jour la carte et le texte', async ({ page }) => {
       await open(page)
       await page.getByTitle('Modifier GET /products', { exact: true }).click()

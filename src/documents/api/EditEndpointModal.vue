@@ -14,6 +14,9 @@ const e = endpoint.value
 const method = ref<HttpMethod>(e?.method ?? 'GET')
 const path = ref(e?.path ?? '/')
 const summary = ref(e?.summary ?? '')
+const description = ref(e?.description ?? '')
+const tags = ref((e?.tags ?? []).join(', '))
+const deprecated = ref(!!e?.deprecated)
 const auth = ref(!!e?.auth)
 const paginated = ref(!!e?.paginated)
 const extraParams = ref<ApiParam[]>(e?.params.filter((p) => p.in !== 'path').map((p) => ({ ...p })) ?? [])
@@ -22,6 +25,7 @@ const bodyType = ref(e?.body?.type ?? '')
 const bodyDesc = ref(e?.body?.description ?? '')
 const responses = ref(e?.responses.map((r) => ({ status: String(r.status), type: r.type ?? '', description: r.description ?? '' })) ?? [])
 
+const tagList = computed(() => [...new Set(tags.value.split(',').map((t) => t.trim()).filter(Boolean))])
 const normalized = computed(() => normalizePath(path.value.trim() || '/'))
 const pathNames = computed(() => (normalized.value.error ? [] : paramNamesOf(normalized.value.path)))
 
@@ -61,6 +65,9 @@ function save() {
     method: method.value,
     path: finalPath,
     ...(summary.value.trim() ? { summary: summary.value.trim() } : {}),
+    ...(description.value.trim() ? { description: description.value.trim() } : {}),
+    ...(tagList.value.length ? { tags: tagList.value } : {}),
+    ...(deprecated.value ? { deprecated: true } : {}),
     ...(auth.value ? { auth: true } : {}),
     ...(paginated.value ? { paginated: true } : {}),
     params: [
@@ -109,9 +116,18 @@ const iconBtn = 'rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-red-60
       Résumé
       <input v-model="summary" :class="field" placeholder="Lister les utilisateurs" />
     </label>
+    <label class="mt-4 block text-sm font-medium">
+      Description
+      <textarea v-model="description" rows="2" :class="field" placeholder="Explication plus longue (facultatif)" />
+    </label>
+    <label class="mt-4 block text-sm font-medium">
+      Groupes
+      <input v-model="tags" :class="field" :placeholder="`Séparés par des virgules (par défaut : ${normalized.error ? '…' : (normalized.path.split('/').find((s) => s && !s.startsWith('{')) ?? 'aucun')})`" aria-label="Groupes" />
+    </label>
     <div class="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm">
       <label class="inline-flex items-center gap-2"><input v-model="auth" type="checkbox" /> Authentification requise</label>
       <label class="inline-flex items-center gap-2" title="Ajoute page, limit et l'en-tête X-Total-Count"><input v-model="paginated" type="checkbox" /> Liste paginée</label>
+      <label class="inline-flex items-center gap-2" title="Barre la route dans le diagramme et la marque obsolète dans les exports"><input v-model="deprecated" type="checkbox" /> Obsolète</label>
     </div>
 
     <section v-if="pathNames.length" class="mt-5">

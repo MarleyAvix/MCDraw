@@ -23,8 +23,9 @@
  *       GET Détail -> 200 User, 404
  *
  * Les lignes indentées appartiennent à la ligne du dessus. Chemins : `/segment`, imbriqués. Routes : méthode puis résumé,
- * `[auth]` / `[paginated]`, puis `->` et les réponses (`code type`, séparées par des virgules). Détails d'une route :
- * `<` corps de la requête, `>` réponse (avec note après `--`), `?` paramètre de requête, `@` en-tête.
+ * `[auth]` / `[paginated]` / `[deprecated]`, puis `->` et les réponses (`code type`, séparées par des virgules). Détails d'une route :
+ * `<` corps de la requête, `>` réponse (avec note après `--`), `?` paramètre de requête, `@` en-tête,
+ * `#` groupes (tags), `~` description.
  * Un champ ou un paramètre est obligatoire sauf si son type finit par `?`. Commentaires : `//` en début de ligne.
  */
 import { childrenOf } from '../../core/tree'
@@ -112,6 +113,14 @@ export function parseApiText(text: string, makeId: () => string): { api: ApiDocu
         if (m[2] && !type) return fail(`Type de réponse inconnu : « ${m[2]} ».`)
         if (e.responses.some((r) => r.status === +m[1])) return fail(`Le code ${m[1]} est déjà décrit pour cette route.`)
         e.responses.push({ status: +m[1], ...(type ? { type } : {}), ...(note ? { description: note } : {}) })
+      } else if (mark === '#') {
+        const tags = content.split(',').map((t) => t.trim()).filter(Boolean)
+        if (!tags.length) return fail('Groupes attendus : « # users, admin ».')
+        e.tags = [...new Set([...(e.tags ?? []), ...tags])]
+      } else if (mark === '~') {
+        const text = body.slice(1).trim()
+        if (!text) return fail('Description attendue : « ~ texte ».')
+        e.description = e.description ? `${e.description} ${text}` : text
       } else if (mark === '?' || mark === '@') {
         const m = NAME.exec(content)
         const t = m ? readType(m[2]) : null
@@ -121,7 +130,7 @@ export function parseApiText(text: string, makeId: () => string): { api: ApiDocu
         if (e.params.some((p) => p.in === where && p.name.toLowerCase() === m[1].toLowerCase())) return fail(`Le paramètre « ${m[1]} » est déjà déclaré.`)
         e.params.push({ name: m[1], in: where, type: t.type, ...(t.optional ? { optional: true } : {}), ...(note ? { description: note } : {}) })
       } else {
-        fail('Détail attendu : « < corps », « > réponse », « ? paramètre » ou « @ en-tête ».')
+        fail('Détail attendu : « < corps », « > réponse », « ? paramètre », « @ en-tête », « # groupes » ou « ~ description ».')
       }
       return
     }
@@ -201,8 +210,8 @@ export function parseApiText(text: string, makeId: () => string): { api: ApiDocu
 
     function readMethod(method: HttpMethod, text: string, pathRaw: string) {
       let rest = text.slice(method.length)
-      const flags = { auth: false, paginated: false }
-      rest = rest.replace(/\[(auth|paginated)\]/gi, (_, f: string) => ((flags[f.toLowerCase() as 'auth' | 'paginated'] = true), ' '))
+      const flags = { auth: false, paginated: false, deprecated: false }
+      rest = rest.replace(/\[(auth|paginated|deprecated)\]/gi, (_, f: string) => ((flags[f.toLowerCase() as keyof typeof flags] = true), ' '))
       const arrow = rest.indexOf('->')
       const summary = (arrow < 0 ? rest : rest.slice(0, arrow)).trim().replace(/\s+/g, ' ')
 
@@ -218,6 +227,7 @@ export function parseApiText(text: string, makeId: () => string): { api: ApiDocu
         ...(summary ? { summary } : {}),
         ...(flags.auth ? { auth: true } : {}),
         ...(flags.paginated ? { paginated: true } : {}),
+        ...(flags.deprecated ? { deprecated: true } : {}),
         params: pathParams(path, types),
         responses: [],
       }
@@ -245,9 +255,11 @@ const typeSuffix = (t: { type: string; optional?: boolean }) => `${t.type}${t.op
 
 function endpointLines(e: ApiEndpoint, pad: string): string[] {
   const compact = e.responses.length > 0 && e.responses.every((r) => !r.description)
-  const head = [e.method, e.summary, e.auth ? '[auth]' : '', e.paginated ? '[paginated]' : ''].filter(Boolean).join(' ')
+  const head = [e.method, e.summary, e.auth ? '[auth]' : '', e.paginated ? '[paginated]' : '', e.deprecated ? '[deprecated]' : ''].filter(Boolean).join(' ')
   const out = [`${pad}${head}${compact ? ` -> ${e.responses.map((r) => `${r.status}${r.type ? ` ${r.type}` : ''}`).join(', ')}` : ''}`]
   const inner = `${pad}  `
+  if (e.tags?.length) out.push(`${inner}# ${e.tags.join(', ')}`)
+  if (e.description) out.push(`${inner}~ ${e.description}`)
   if (e.body) out.push(`${inner}< ${e.body.type}${e.body.description ? ` -- ${e.body.description}` : ''}`)
   for (const p of e.params.filter((p) => p.in === 'query')) out.push(`${inner}? ${p.name}: ${typeSuffix(p)}${p.description ? ` -- ${p.description}` : ''}`)
   for (const p of e.params.filter((p) => p.in === 'header')) out.push(`${inner}@ ${p.name}: ${typeSuffix(p)}${p.description ? ` -- ${p.description}` : ''}`)

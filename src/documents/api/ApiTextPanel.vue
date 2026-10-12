@@ -69,7 +69,7 @@ watch(
         <p><b>schema User</b> puis champs<br /><span class="text-slate-400">nom: type (type? = facultatif)</span></p>
         <p><b>/users</b> puis <b>/{id:uuid}</b><br /><span class="text-slate-400">chemins imbriqués par l'indentation</span></p>
         <p><b>GET Lister [auth] [paginated] -> 200 User[], 404</b><br /><span class="text-slate-400">méthode, résumé, drapeaux, réponses</span></p>
-        <p><b>&lt; UserInput</b> corps · <b>&gt; 201 User -- note</b> réponse<br /><b>? q: string?</b> requête · <b>@ X-Id: uuid</b> en-tête</p>
+        <p><b>&lt; UserInput</b> corps · <b>&gt; 201 User -- note</b> réponse<br /><b>? q: string?</b> requête · <b>@ X-Id: uuid</b> en-tête<br /><b># users, admin</b> groupes · <b>~ texte</b> description · <b>[deprecated]</b></p>
         <p class="text-slate-400">Types : string int number bool date datetime uuid email url any, Schéma, Schéma[], enum(a|b)</p>
       </div>
     </details>

@@ -28,6 +28,8 @@ export function apiToHttpFile(api: ApiDocument): string {
 function requestLines(e: ApiEndpoint, api: ApiDocument): string[] {
   const lines = [`### ${e.summary ?? `${e.method} ${e.path}`}`]
   const note: string[] = []
+  if (e.deprecated) note.push('Route obsolète')
+  if (e.description) note.push(e.description)
 
   const url = `{{baseUrl}}${e.path.replace(/\{([^}]+)\}/g, (_, n: string) => `{{${n}}}`)}`
   const query = e.params.filter((p) => p.in === 'query')
