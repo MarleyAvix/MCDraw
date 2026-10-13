@@ -7,11 +7,13 @@ import SearchBox from './components/panels/SearchBox.vue'
 import HeaderToolbar from './components/panels/HeaderToolbar.vue'
 import CanvasToolbar from './components/panels/CanvasToolbar.vue'
 import ShareModal from './components/panels/ShareModal.vue'
+import { useAppearanceApplier } from './composables/useAppearance'
 import ThemeModal from './components/panels/ThemeModal.vue'
 import ShortcutsModal from './components/modals/ShortcutsModal.vue'
 import { useShareLink } from './composables/useShareLink'
 
 const store = useDocumentStore()
+useAppearanceApplier(() => store.activeId)
 const { type, doc, view, ctx } = useActiveDocument()
 initPanels()
 

@@ -135,6 +135,14 @@ export interface DocumentExample {
   category: string
 }
 
+/** Une couleur que le type laisse personnaliser, avec le vocabulaire du type (pages, participants…). */
+export interface AppearanceField {
+  /** `entity` : en-têtes ; `relation` : second type de forme (associations, notes) ; `edge` : liens et traits ; `text` : écritures. */
+  key: 'entity' | 'relation' | 'edge' | 'text'
+  label: string
+  hint: string
+}
+
 export interface DocumentType<S = unknown> {
   /** Sert de préfixe au stockage et au lien de partage : ne change jamais. */
   id: string
@@ -147,6 +155,8 @@ export interface DocumentType<S = unknown> {
   accepts(raw: unknown): boolean
 
   useDocument(): DocumentApi<S>
+  /** Couleurs personnalisables de ce type (absent ou vide : le bouton « Couleurs » n'apparaît pas). */
+  appearance?: AppearanceField[]
   examples: DocumentExample[]
   exampleGroups: ExampleGroup[]
 

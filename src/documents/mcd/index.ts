@@ -48,6 +48,12 @@ export const mcdDocument: DocumentType<MeriseSchema> = {
   fileName: 'mcdraw',
   accepts: (raw) => isRecord(raw) && Array.isArray(raw.entities) && Array.isArray(raw.relations) && Array.isArray(raw.links),
 
+  appearance: [
+    { key: 'entity', label: 'Entités', hint: 'En-tête des entités, tables et classes' },
+    { key: 'relation', label: 'Associations', hint: 'Fond des associations' },
+    { key: 'edge', label: 'Liens', hint: 'Pattes et traits de liaison' },
+    { key: 'text', label: 'Écritures', hint: 'Noms, étiquettes et textes du diagramme' },
+  ],
   useDocument: useMcdDocument,
   examples: EXAMPLES.map(({ id, label, description, category }) => ({ id, label, description, category })),
   exampleGroups: [

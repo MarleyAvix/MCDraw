@@ -59,6 +59,39 @@ test.describe('parcours principaux', () => {
     expect(await bg()).toBe('#ffe000')
   })
 
+  test('les couleurs proposées suivent le type de schéma, et chaque type garde les siennes', async ({ page }) => {
+    await page.goto('/')
+    const palette = page.getByRole('button', { name: 'Couleurs du diagramme' })
+    const dialog = page.getByRole('dialog')
+    const names = () => dialog.locator('label span.font-medium').allTextContents()
+    const bg = () => page.evaluate(() => document.documentElement.style.getPropertyValue('--entity-bg'))
+
+    await palette.click()
+    expect(await names()).toEqual(['Entités', 'Associations', 'Liens', 'Écritures'])
+    await dialog.locator('input[type="color"]').first().fill('#ffe000')
+    await dialog.getByRole('button', { name: 'Fermer' }).last().click()
+
+    await tab(page, 'Séquence').click()
+    expect(await bg()).toBe('')
+    await palette.click()
+    expect(await names()).toEqual(['Participants', 'Notes', 'Flèches', 'Écritures'])
+    await dialog.locator('input[type="color"]').first().fill('#ff0000')
+    await dialog.getByRole('button', { name: 'Fermer' }).last().click()
+    await expect(page.getByRole('img', { name: /Diagramme de séquence/ }).locator('rect.stroke-slate-600').first()).toHaveCSS('fill', 'rgb(255, 0, 0)')
+
+    await palette.click()
+    await dialog.locator('input[type="color"]').last().fill('#00aa00')
+    await dialog.getByRole('button', { name: 'Fermer' }).last().click()
+    await expect(page.getByRole('img', { name: /Diagramme de séquence/ }).locator('text.seq-text').first()).toHaveCSS('fill', 'rgb(0, 170, 0)')
+
+    await tab(page, 'Carte mentale').click()
+    await palette.click()
+    expect(await names()).toEqual(['Écritures'])
+    await dialog.getByRole('button', { name: 'Fermer' }).last().click()
+    await tab(page, 'Base de données').click()
+    expect(await bg()).toBe('#ffe000')
+  })
+
   test('exporte le projet en JSON', async ({ page }) => {
     await page.goto('/')
     await page.getByRole('button', { name: /Fichier/ }).click()
