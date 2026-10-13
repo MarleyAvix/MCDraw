@@ -139,7 +139,7 @@ const panel = 'absolute left-0 top-full z-40 mt-1 rounded-md border border-slate
 
     <!-- Préférences / App -->
     <div class="flex items-center gap-2">
-      <button :class="btn" title="Couleurs du diagramme" @click="store.showThemeModal = true"><Palette :size="16" /></button>
+      <button v-if="type.appearance?.length" :class="btn" title="Couleurs du diagramme" @click="store.showThemeModal = true"><Palette :size="16" /></button>
       <button :class="btn" :title="isDark ? 'Thème clair' : 'Thème sombre'" @click="toggleTheme">
         <component :is="isDark ? Sun : Moon" :size="16" />
       </button>

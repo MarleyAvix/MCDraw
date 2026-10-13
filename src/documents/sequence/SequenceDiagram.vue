@@ -106,15 +106,15 @@ const labelX = (p: LParticipant) => (p.kind === 'participant' ? p.x : p.x + 11)
     <g v-for="m in L.messages" :key="m.id" :data-id="m.id" class="cursor-pointer" @click.stop="pick(m.id, $event)" @dblclick.stop="edit(m.id)">
       <rect :x="m.hit.x" :y="m.hit.y" :width="m.hit.w" :height="m.hit.h" rx="4" :class="flashed(m.id) ? 'seq-flash-rect' : selected.has(m.id) ? 'seq-sel-rect' : ''" :fill="flashed(m.id) || selected.has(m.id) ? undefined : 'transparent'" stroke-width="1.5" />
       <template v-if="shapes.get(m.id)">
-        <path :d="shapes.get(m.id)!.line" fill="none" stroke-width="1.5" :stroke-dasharray="shapes.get(m.id)!.dashed ? '6 4' : undefined" class="stroke-slate-700" />
-        <polyline v-if="shapes.get(m.id)!.open && m.arrow !== 'lost'" :points="shapes.get(m.id)!.head" fill="none" stroke-width="1.5" class="stroke-slate-700" />
-        <polygon v-else-if="m.arrow !== 'lost'" :points="shapes.get(m.id)!.head" stroke-width="1" class="fill-slate-700 stroke-slate-700" />
+        <path :d="shapes.get(m.id)!.line" fill="none" stroke-width="1.5" :stroke-dasharray="shapes.get(m.id)!.dashed ? '6 4' : undefined" class="seq-edge stroke-slate-700" />
+        <polyline v-if="shapes.get(m.id)!.open && m.arrow !== 'lost'" :points="shapes.get(m.id)!.head" fill="none" stroke-width="1.5" class="seq-edge stroke-slate-700" />
+        <polygon v-else-if="m.arrow !== 'lost'" :points="shapes.get(m.id)!.head" stroke-width="1" class="seq-edge-fill fill-slate-700 stroke-slate-700" />
         <g v-if="shapes.get(m.id)!.cross">
-          <line :x1="shapes.get(m.id)!.cross![0] - 5" :x2="shapes.get(m.id)!.cross![0] + 5" :y1="m.y - 5" :y2="m.y + 5" stroke-width="2" class="stroke-slate-700" />
-          <line :x1="shapes.get(m.id)!.cross![0] - 5" :x2="shapes.get(m.id)!.cross![0] + 5" :y1="m.y + 5" :y2="m.y - 5" stroke-width="2" class="stroke-slate-700" />
+          <line :x1="shapes.get(m.id)!.cross![0] - 5" :x2="shapes.get(m.id)!.cross![0] + 5" :y1="m.y - 5" :y2="m.y + 5" stroke-width="2" class="seq-edge stroke-slate-700" />
+          <line :x1="shapes.get(m.id)!.cross![0] - 5" :x2="shapes.get(m.id)!.cross![0] + 5" :y1="m.y + 5" :y2="m.y - 5" stroke-width="2" class="seq-edge stroke-slate-700" />
         </g>
         <g v-if="m.number">
-          <circle :cx="shapes.get(m.id)!.badge.x" :cy="shapes.get(m.id)!.badge.y" r="8" class="fill-slate-700" />
+          <circle :cx="shapes.get(m.id)!.badge.x" :cy="shapes.get(m.id)!.badge.y" r="8" class="seq-edge-fill fill-slate-700 stroke-none" />
           <text :x="shapes.get(m.id)!.badge.x" :y="shapes.get(m.id)!.badge.y + 3.5" text-anchor="middle" font-size="10" font-weight="700" class="fill-surface">{{ m.number }}</text>
         </g>
       </template>
@@ -126,8 +126,8 @@ const labelX = (p: LParticipant) => (p.kind === 'participant' ? p.x : p.x + 11)
     <!-- Notes -->
     <g v-for="n in L.notes" :key="n.id" :data-id="n.id" class="cursor-pointer" @click.stop="pick(n.id, $event)" @dblclick.stop="edit(n.id)">
       <rect v-if="selected.has(n.id) || flashed(n.id)" :x="n.x - 3" :y="n.y - 3" :width="n.w + 6" :height="n.h + 6" rx="5" fill="none" stroke-width="2" :class="flashed(n.id) ? 'seq-flash-rect' : 'seq-sel-rect'" />
-      <path :d="`M${n.x},${n.y} H${n.x + n.w - 10} L${n.x + n.w},${n.y + 10} V${n.y + n.h} H${n.x} Z`" fill="#fff6c9" stroke="#d6b64a" stroke-width="1" />
-      <text :x="n.x + 9" :y="n.y + 18" fill="#3a3a3a">
+      <path :d="`M${n.x},${n.y} H${n.x + n.w - 10} L${n.x + n.w},${n.y + 10} V${n.y + n.h} H${n.x} Z`" stroke="#d6b64a" stroke-width="1" :style="{ fill: 'var(--relation-bg, #fff6c9)' }" />
+      <text :x="n.x + 9" :y="n.y + 18" :style="{ fill: 'var(--relation-fg, #3a3a3a)' }">
         <tspan v-for="(line, i) in n.lines" :key="i" :x="n.x + 9" :dy="i ? 14 : 0">{{ line }}</tspan>
       </text>
     </g>
@@ -136,7 +136,7 @@ const labelX = (p: LParticipant) => (p.kind === 'participant' ? p.x : p.x + 11)
     <template v-for="y in [L.boxY, L.bottomBoxY]" :key="y">
       <g v-for="p in L.participants" :key="`${y}-${p.id}`" class="cursor-pointer" :data-id="y === L.boxY ? p.id : undefined" @click.stop="pick(p.id, $event)" @dblclick.stop="edit(p.id)">
         <rect v-if="selected.has(p.id) || flashed(p.id)" :x="partBox(p).x - 3" :y="y - 3" :width="partBox(p).w + 6" :height="BOX_H + 6" rx="8" fill="none" stroke-width="2" :class="flashed(p.id) ? 'seq-flash-rect' : 'seq-sel-rect'" />
-        <rect :x="partBox(p).x" :y="y" :width="partBox(p).w" :height="BOX_H" rx="6" stroke-width="1.5" class="fill-surface stroke-slate-600" />
+        <rect :x="partBox(p).x" :y="y" :width="partBox(p).w" :height="BOX_H" rx="6" stroke-width="1.5" class="stroke-slate-600" :style="{ fill: 'var(--entity-bg, var(--color-surface))' }" />
         <g v-if="p.kind === 'actor'" class="stroke-slate-600" fill="none" stroke-width="1.5" stroke-linecap="round">
           <circle :cx="iconX(p)" :cy="y + 13" r="4" />
           <path :d="`M${iconX(p)},${y + 17} V${y + 27} M${iconX(p) - 6},${y + 21} H${iconX(p) + 6} M${iconX(p)},${y + 27} L${iconX(p) - 5},${y + 34} M${iconX(p)},${y + 27} L${iconX(p) + 5},${y + 34}`" />
@@ -145,7 +145,7 @@ const labelX = (p: LParticipant) => (p.kind === 'participant' ? p.x : p.x + 11)
           <ellipse :cx="iconX(p)" :cy="y + 15" rx="7" ry="3" />
           <path :d="`M${iconX(p) - 7},${y + 15} V${y + 29} A7,3 0 0 0 ${iconX(p) + 7},${y + 29} V${y + 15}`" />
         </g>
-        <text :x="labelX(p)" :y="y + BOX_H / 2 + 4" text-anchor="middle" font-weight="600" class="fill-slate-800">{{ p.label }}</text>
+        <text :x="labelX(p)" :y="y + BOX_H / 2 + 4" text-anchor="middle" font-weight="600" class="fill-slate-800" :style="{ fill: 'var(--entity-fg, var(--color-slate-800))' }">{{ p.label }}</text>
       </g>
     </template>
   </svg>

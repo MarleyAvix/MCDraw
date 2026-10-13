@@ -4,7 +4,7 @@ import { nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import ThemeModal from '../panels/ThemeModal.vue'
-import { useAppearance } from '../../composables/useAppearance'
+import { useAppearance, useAppearanceApplier } from '../../composables/useAppearance'
 import { useDocumentStore } from '../../core/documentStore'
 import { registerDocuments } from '../../documents'
 
@@ -18,12 +18,20 @@ async function setColor(input: HTMLInputElement, value: string) {
   await nextTick()
 }
 
-const mountModal = (pinia = createPinia()) => mount(ThemeModal, { attachTo: document.body, global: { plugins: [pinia] } })
+/** Monte la fenêtre pour un type de document donné (les couleurs s'appliquent à la page comme dans l'application). */
+function mountModal(typeId = 'mcd', pinia = createPinia()) {
+  setActivePinia(pinia)
+  registerDocuments()
+  const store = useDocumentStore()
+  store.select(typeId)
+  useAppearanceApplier(() => store.activeId)
+  return mount(ThemeModal, { attachTo: document.body, global: { plugins: [pinia] } })
+}
 
 describe('ThemeModal', () => {
   beforeEach(() => {
     document.body.innerHTML = ''
-    useAppearance().reset()
+    for (const id of ['mcd', 'sitemap', 'api', 'sequence', 'mindmap']) useAppearance(id).reset()
   })
 
   it("applique une couleur d'entité et choisit un texte lisible", async () => {
@@ -54,13 +62,46 @@ describe('ThemeModal', () => {
   it('se ferme avec le bouton Fermer', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
-    registerDocuments()
     const store = useDocumentStore()
     store.showThemeModal = true
-    const w = mountModal(pinia)
+    const w = mountModal('mcd', pinia)
     click(buttonWith('Fermer'))
     await nextTick()
     expect(store.showThemeModal).toBe(false)
     w.unmount()
+  })
+
+  it('propose les couleurs du type affiché, avec son vocabulaire', async () => {
+    const labels = () => [...document.body.querySelectorAll('label span.font-medium')].map((e) => e.textContent)
+    let w = mountModal('mcd')
+    expect(labels()).toEqual(['Entités', 'Associations', 'Liens'])
+    w.unmount()
+    document.body.innerHTML = ''
+    w = mountModal('sitemap')
+    expect(labels()).toEqual(['Pages', 'Liens'])
+    w.unmount()
+    document.body.innerHTML = ''
+    w = mountModal('sequence')
+    expect(labels()).toEqual(['Participants', 'Notes', 'Flèches'])
+    w.unmount()
+  })
+
+  it('chaque type garde ses couleurs : celles du MCD ne touchent pas le plan de site', async () => {
+    const w = mountModal('mcd')
+    await setColor(colors()[0], '#ff0000')
+    expect(document.documentElement.style.getPropertyValue('--entity-bg')).toBe('#ff0000')
+    w.unmount()
+    document.body.innerHTML = ''
+    const w2 = mountModal('sitemap')
+    await nextTick()
+    expect(document.documentElement.style.getPropertyValue('--entity-bg')).toBe('')
+    w2.unmount()
+  })
+
+  it('la carte mentale n’a rien à personnaliser (une couleur par branche) : pas de bouton', async () => {
+    const { getDocumentType } = await import('../../core/documentType')
+    registerDocuments()
+    expect(getDocumentType('mindmap')?.appearance ?? []).toEqual([])
+    for (const id of ['mcd', 'sitemap', 'api', 'sequence']) expect(getDocumentType(id)?.appearance?.length, id).toBeGreaterThan(0)
   })
 })

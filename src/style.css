@@ -111,6 +111,9 @@ input[type='text'], input:not([type]) { cursor: text; }
 :root.themed-relation .relation-bg, :root.themed-relation .relation-bg *:not(input):not(select) { color: var(--relation-fg); }
 /* Symboles de notation (pattes de corbeau, flèches, cardinalités) : suivent la couleur des liens. */
 .edge-mark { color: var(--edge); }
+/* Diagramme de séquence : flèches et lignes de vie suivent la couleur des liens quand elle est personnalisée. */
+:root.themed-edge .seq-edge { stroke: var(--edge); }
+:root.themed-edge .seq-edge-fill { fill: var(--edge); stroke: var(--edge); }
 
 /* Poignée de tracé des pattes : discrète, pleine au survol. */
 .link-handle { opacity: .35; transition: opacity .15s; }

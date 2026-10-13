@@ -96,6 +96,11 @@ export const sequenceDocument: DocumentType<SeqDocument> = {
   fileName: 'sequence',
   accepts: (raw) => isRecord(raw) && Array.isArray(raw.participants) && Array.isArray(raw.items),
 
+  appearance: [
+    { key: 'entity', label: 'Participants', hint: 'Fond des boîtes des participants' },
+    { key: 'relation', label: 'Notes', hint: 'Fond des notes' },
+    { key: 'edge', label: 'Flèches', hint: 'Messages, lignes de vie et numéros' },
+  ],
   useDocument: useSequenceDocument,
   examples: SEQUENCE_EXAMPLES.map(({ id, label, description }) => ({ id, label, description, category: 'modele' })),
   exampleGroups: [{ category: 'modele', title: 'Modèles de départ' }],

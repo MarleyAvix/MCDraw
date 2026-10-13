@@ -117,6 +117,10 @@ export const apiDocument: DocumentType<ApiDocument> = {
   fileName: 'api',
   accepts: (raw) => isRecord(raw) && Array.isArray(raw.endpoints),
 
+  appearance: [
+    { key: 'entity', label: 'Routes et schémas', hint: 'En-tête des routes, des chemins et des schémas' },
+    { key: 'edge', label: 'Liens', hint: 'Traits entre les chemins et les schémas' },
+  ],
   useDocument: useApiDocument,
   examples: API_EXAMPLES.map(({ id, label, description }) => ({ id, label, description, category: 'modele' })),
   exampleGroups: [{ category: 'modele', title: 'Modèles de départ' }],

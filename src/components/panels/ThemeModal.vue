@@ -1,27 +1,25 @@
 <script setup lang="ts">
 import { RotateCcw } from 'lucide-vue-next'
 import { useDocumentStore } from '../../core/documentStore'
-import { useAppearance, type Appearance } from '../../composables/useAppearance'
+import { useAppearance } from '../../composables/useAppearance'
 import BaseModal from '../modals/BaseModal.vue'
 
 const store = useDocumentStore()
-const { appearance, reset } = useAppearance()
+const { appearance, reset } = useAppearance(store.active.id)
 
-const FIELDS: { key: keyof Appearance; label: string; hint: string; fallback: string }[] = [
-  { key: 'entity', label: 'Entités', hint: 'En-tête des entités, tables et classes', fallback: '#b6e3ff' },
-  { key: 'relation', label: 'Associations', hint: 'Fond des associations', fallback: '#fff8c5' },
-  { key: 'edge', label: 'Liens', hint: 'Pattes et traits de liaison', fallback: '#57606a' },
-]
+const FALLBACK = { entity: '#b6e3ff', relation: '#fff8c5', edge: '#57606a' }
+// Les champs, leurs noms et leurs explications viennent du type affiché : pages, participants, associations…
+const fields = store.active.appearance ?? []
 </script>
 
 <template>
-  <BaseModal title="Thème du diagramme" @close="store.showThemeModal = false">
+  <BaseModal :title="`Couleurs — ${store.active.label}`" @close="store.showThemeModal = false">
     <p class="mb-4 text-sm text-slate-600">
-      Personnalisez les couleurs du diagramme. Elles s'appliquent à toutes les vues et aux exports (PNG, SVG, PDF).
+      Personnalisez les couleurs de ce type de schéma. Elles s'appliquent à toutes ses vues et aux exports (PNG, SVG, PDF) ; chaque type garde les siennes.
     </p>
     <div class="space-y-3">
-      <label v-for="f in FIELDS" :key="f.key" class="flex items-center gap-3">
-        <input type="color" :value="appearance[f.key] || f.fallback" class="h-9 w-12 cursor-pointer rounded border border-slate-300 p-0.5"
+      <label v-for="f in fields" :key="f.key" class="flex items-center gap-3">
+        <input type="color" :value="appearance[f.key] || FALLBACK[f.key]" class="h-9 w-12 cursor-pointer rounded border border-slate-300 p-0.5"
           @input="appearance[f.key] = ($event.target as HTMLInputElement).value" />
         <span class="flex-1">
           <span class="block text-sm font-medium">{{ f.label }}</span>

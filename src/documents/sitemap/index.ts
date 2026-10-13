@@ -70,6 +70,10 @@ export const sitemapDocument: DocumentType<SitemapSchema> = {
   fileName: 'sitemap',
   accepts: (raw) => typeof raw === 'object' && raw !== null && Array.isArray((raw as { pages?: unknown }).pages),
 
+  appearance: [
+    { key: 'entity', label: 'Pages', hint: 'En-tête des pages' },
+    { key: 'edge', label: 'Liens', hint: 'Traits entre une page et ses sous-pages' },
+  ],
   useDocument: useSitemapDocument,
   examples: SITEMAP_EXAMPLES.map(({ id, label, description }) => ({ id, label, description, category: 'modele' })),
   exampleGroups: [{ category: 'modele', title: 'Modèles de départ' }],
