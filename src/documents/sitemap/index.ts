@@ -73,6 +73,7 @@ export const sitemapDocument: DocumentType<SitemapSchema> = {
   appearance: [
     { key: 'entity', label: 'Pages', hint: 'En-tête des pages' },
     { key: 'edge', label: 'Liens', hint: 'Traits entre une page et ses sous-pages' },
+    { key: 'text', label: 'Écritures', hint: 'Noms, étiquettes et textes du diagramme' },
   ],
   useDocument: useSitemapDocument,
   examples: SITEMAP_EXAMPLES.map(({ id, label, description }) => ({ id, label, description, category: 'modele' })),

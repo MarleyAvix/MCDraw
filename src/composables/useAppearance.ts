@@ -7,12 +7,14 @@ export interface Appearance {
   relation: string
   /** Couleur des liens et pattes. */
   edge: string
+  /** Couleur des textes (noms, étiquettes, messages). */
+  text: string
 }
 
 const KEY = 'mcdraw:appearance'
 /** Avant les couleurs par type, un seul jeu était partagé : il revient au MCD, seul type qui existait alors. */
 const LEGACY_TYPE = 'mcd'
-const EMPTY: Appearance = { entity: '', relation: '', edge: '' }
+const EMPTY: Appearance = { entity: '', relation: '', edge: '', text: '' }
 const HEX = /^#[0-9a-f]{6}$/i
 const keyOf = (typeId: string) => `${KEY}:${typeId}`
 
@@ -38,7 +40,7 @@ function appearanceOf(typeId: string): Appearance {
   return a
 }
 
-const VARS: Record<keyof Appearance, string> = { entity: '--entity-bg', relation: '--relation-bg', edge: '--edge' }
+const VARS: Record<keyof Appearance, string> = { entity: '--entity-bg', relation: '--relation-bg', edge: '--edge', text: '--text' }
 
 /** Texte lisible (sombre ou blanc) sur un fond donné, d'après sa luminance perçue. */
 function contrastOn(hex: string) {
@@ -53,6 +55,7 @@ function apply(a: Appearance) {
     else html.style.removeProperty(VARS[k])
   }
   html.classList.toggle('themed-edge', !!a.edge)
+  html.classList.toggle('themed-text', !!a.text)
   for (const k of ['entity', 'relation'] as const) {
     html.classList.toggle(`themed-${k}`, !!a[k])
     if (a[k]) html.style.setProperty(`--${k}-fg`, contrastOn(a[k]))

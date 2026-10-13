@@ -78,7 +78,7 @@ const labelX = (p: LParticipant) => (p.kind === 'participant' ? p.x : p.x + 11)
     role="img"
     :aria-label="L.title ? `Diagramme de séquence : ${L.title}` : 'Diagramme de séquence'"
   >
-    <text v-if="L.title" :x="L.width / 2" :y="L.titleY" text-anchor="middle" font-size="16" font-weight="700" class="fill-slate-800">{{ L.title }}</text>
+    <text v-if="L.title" :x="L.width / 2" :y="L.titleY" text-anchor="middle" font-size="16" font-weight="700" class="seq-text fill-slate-800">{{ L.title }}</text>
 
     <!-- Lignes de vie -->
     <line v-for="p in L.participants" :key="`l-${p.id}`" :x1="p.x" :x2="p.x" :y1="L.lifelineTop" :y2="L.lifelineBottom" stroke-dasharray="5 5" stroke-width="1" class="stroke-slate-300" />
@@ -88,11 +88,11 @@ const labelX = (p: LParticipant) => (p.kind === 'participant' ? p.x : p.x + 11)
       <rect v-if="selected.has(b.id) || flashed(b.id)" :x="b.x - 3" :y="b.y - 3" :width="b.w + 6" :height="b.h + 6" rx="5" :class="flashed(b.id) ? 'seq-flash-rect' : 'seq-sel-rect'" fill="none" stroke-width="2" />
       <rect :x="b.x" :y="b.y" :width="b.w" :height="b.h" rx="3" fill="none" stroke-width="1.2" class="stroke-slate-400" />
       <polygon :points="`${b.x},${b.y} ${b.x + b.tabW},${b.y} ${b.x + b.tabW},${b.y + 14} ${b.x + b.tabW - 8},${b.y + 22} ${b.x},${b.y + 22}`" stroke-width="1.2" class="fill-slate-100 stroke-slate-400" />
-      <text :x="b.x + 9" :y="b.y + 15" font-weight="700" class="fill-slate-700">{{ b.type }}</text>
-      <text v-if="b.label" :x="b.x + b.tabW + 8" :y="b.y + 15" class="fill-slate-600">[{{ b.label }}]</text>
+      <text :x="b.x + 9" :y="b.y + 15" font-weight="700" class="seq-text fill-slate-700">{{ b.type }}</text>
+      <text v-if="b.label" :x="b.x + b.tabW + 8" :y="b.y + 15" class="seq-text fill-slate-600">[{{ b.label }}]</text>
       <g v-for="s in b.sections" :key="s.id">
         <line :x1="b.x" :x2="b.x + b.w" :y1="s.y" :y2="s.y" stroke-dasharray="6 4" stroke-width="1.2" class="stroke-slate-400" />
-        <text v-if="s.label" :x="b.x + 9" :y="s.y + 16" class="fill-slate-600">[{{ s.label }}]</text>
+        <text v-if="s.label" :x="b.x + 9" :y="s.y + 16" class="seq-text fill-slate-600">[{{ s.label }}]</text>
       </g>
       <!-- zones cliquables : l'étiquette et les séparateurs -->
       <rect :x="b.x" :y="b.y" :width="Math.max(b.tabW + 40, 60)" height="24" fill="transparent" class="cursor-pointer" @click.stop="pick(b.id, $event)" @dblclick.stop="edit(b.id)" />
@@ -118,7 +118,7 @@ const labelX = (p: LParticipant) => (p.kind === 'participant' ? p.x : p.x + 11)
           <text :x="shapes.get(m.id)!.badge.x" :y="shapes.get(m.id)!.badge.y + 3.5" text-anchor="middle" font-size="10" font-weight="700" class="fill-surface">{{ m.number }}</text>
         </g>
       </template>
-      <text v-if="m.lines.length" :x="m.textX" :y="m.textY" :text-anchor="m.self ? 'start' : 'middle'" class="fill-slate-700">
+      <text v-if="m.lines.length" :x="m.textX" :y="m.textY" :text-anchor="m.self ? 'start' : 'middle'" class="seq-text fill-slate-700">
         <tspan v-for="(line, i) in m.lines" :key="i" :x="m.textX" :dy="i ? 14 : 0">{{ line }}</tspan>
       </text>
     </g>
@@ -127,7 +127,7 @@ const labelX = (p: LParticipant) => (p.kind === 'participant' ? p.x : p.x + 11)
     <g v-for="n in L.notes" :key="n.id" :data-id="n.id" class="cursor-pointer" @click.stop="pick(n.id, $event)" @dblclick.stop="edit(n.id)">
       <rect v-if="selected.has(n.id) || flashed(n.id)" :x="n.x - 3" :y="n.y - 3" :width="n.w + 6" :height="n.h + 6" rx="5" fill="none" stroke-width="2" :class="flashed(n.id) ? 'seq-flash-rect' : 'seq-sel-rect'" />
       <path :d="`M${n.x},${n.y} H${n.x + n.w - 10} L${n.x + n.w},${n.y + 10} V${n.y + n.h} H${n.x} Z`" stroke="#d6b64a" stroke-width="1" :style="{ fill: 'var(--relation-bg, #fff6c9)' }" />
-      <text :x="n.x + 9" :y="n.y + 18" :style="{ fill: 'var(--relation-fg, #3a3a3a)' }">
+      <text :x="n.x + 9" :y="n.y + 18" :style="{ fill: 'var(--relation-fg, var(--text, #3a3a3a))' }">
         <tspan v-for="(line, i) in n.lines" :key="i" :x="n.x + 9" :dy="i ? 14 : 0">{{ line }}</tspan>
       </text>
     </g>
@@ -145,7 +145,7 @@ const labelX = (p: LParticipant) => (p.kind === 'participant' ? p.x : p.x + 11)
           <ellipse :cx="iconX(p)" :cy="y + 15" rx="7" ry="3" />
           <path :d="`M${iconX(p) - 7},${y + 15} V${y + 29} A7,3 0 0 0 ${iconX(p) + 7},${y + 29} V${y + 15}`" />
         </g>
-        <text :x="labelX(p)" :y="y + BOX_H / 2 + 4" text-anchor="middle" font-weight="600" class="fill-slate-800" :style="{ fill: 'var(--entity-fg, var(--color-slate-800))' }">{{ p.label }}</text>
+        <text :x="labelX(p)" :y="y + BOX_H / 2 + 4" text-anchor="middle" font-weight="600" class="seq-text fill-slate-800" :style="{ fill: 'var(--entity-fg, var(--text, var(--color-slate-800)))' }">{{ p.label }}</text>
       </g>
     </template>
   </svg>

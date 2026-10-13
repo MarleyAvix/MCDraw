@@ -106,6 +106,10 @@ input[type='text'], input:not([type]) { cursor: text; }
   background: var(--color-slate-400);
 }
 
+/* Écritures personnalisées : textes des nœuds, des étiquettes de liens et du diagramme de séquence. */
+:root.themed-text .vue-flow__node, :root.themed-text .vue-flow__node *:not(input):not(select):not(button):not(svg) { color: var(--text); }
+:root.themed-text .vue-flow__edge-text { fill: var(--text); }
+:root.themed-text .seq-text { fill: var(--text); }
 /* Fond d'entité / d'association personnalisé : le texte s'adapte pour rester lisible. */
 :root.themed-entity .entity-bg, :root.themed-entity .entity-bg *:not(input):not(select) { color: var(--entity-fg); }
 :root.themed-relation .relation-bg, :root.themed-relation .relation-bg *:not(input):not(select) { color: var(--relation-fg); }

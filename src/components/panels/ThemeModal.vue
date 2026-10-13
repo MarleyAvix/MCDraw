@@ -7,7 +7,7 @@ import BaseModal from '../modals/BaseModal.vue'
 const store = useDocumentStore()
 const { appearance, reset } = useAppearance(store.active.id)
 
-const FALLBACK = { entity: '#b6e3ff', relation: '#fff8c5', edge: '#57606a' }
+const FALLBACK = { entity: '#b6e3ff', relation: '#fff8c5', edge: '#57606a', text: '#1f2328' }
 // Les champs, leurs noms et leurs explications viennent du type affiché : pages, participants, associations…
 const fields = store.active.appearance ?? []
 </script>

@@ -74,15 +74,15 @@ describe('ThemeModal', () => {
   it('propose les couleurs du type affiché, avec son vocabulaire', async () => {
     const labels = () => [...document.body.querySelectorAll('label span.font-medium')].map((e) => e.textContent)
     let w = mountModal('mcd')
-    expect(labels()).toEqual(['Entités', 'Associations', 'Liens'])
+    expect(labels()).toEqual(['Entités', 'Associations', 'Liens', 'Écritures'])
     w.unmount()
     document.body.innerHTML = ''
     w = mountModal('sitemap')
-    expect(labels()).toEqual(['Pages', 'Liens'])
+    expect(labels()).toEqual(['Pages', 'Liens', 'Écritures'])
     w.unmount()
     document.body.innerHTML = ''
     w = mountModal('sequence')
-    expect(labels()).toEqual(['Participants', 'Notes', 'Flèches'])
+    expect(labels()).toEqual(['Participants', 'Notes', 'Flèches', 'Écritures'])
     w.unmount()
   })
 
@@ -98,10 +98,16 @@ describe('ThemeModal', () => {
     w2.unmount()
   })
 
-  it('la carte mentale n’a rien à personnaliser (une couleur par branche) : pas de bouton', async () => {
+  it('les écritures se colorent pour chaque type, la carte mentale n’ayant que cela à régler', async () => {
     const { getDocumentType } = await import('../../core/documentType')
     registerDocuments()
-    expect(getDocumentType('mindmap')?.appearance ?? []).toEqual([])
-    for (const id of ['mcd', 'sitemap', 'api', 'sequence']) expect(getDocumentType(id)?.appearance?.length, id).toBeGreaterThan(0)
+    for (const id of ['mcd', 'sitemap', 'api', 'sequence', 'mindmap']) expect(getDocumentType(id)?.appearance?.some((f) => f.key === 'text'), id).toBe(true)
+    expect(getDocumentType('mindmap')?.appearance).toHaveLength(1)
+
+    const w = mountModal('mindmap')
+    await setColor(colors()[0], '#aa0000')
+    expect(document.documentElement.style.getPropertyValue('--text')).toBe('#aa0000')
+    expect(document.documentElement.classList.contains('themed-text')).toBe(true)
+    w.unmount()
   })
 })

@@ -54,6 +54,8 @@ export const mindmapDocument: DocumentType<MindmapSchema> = {
   fileName: 'carte-mentale',
   accepts: (raw) => typeof raw === 'object' && raw !== null && Array.isArray((raw as { nodes?: unknown }).nodes),
 
+  // Une couleur par branche est déjà automatique : seules les écritures se règlent ici.
+  appearance: [{ key: 'text', label: 'Écritures', hint: 'Texte des idées' }],
   useDocument: useMindmapDocument,
   examples: MINDMAP_EXAMPLES.map(({ id, label, description }) => ({ id, label, description, category: 'modele' })),
   exampleGroups: [{ category: 'modele', title: 'Modèles de départ' }],

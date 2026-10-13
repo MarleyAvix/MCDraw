@@ -137,8 +137,8 @@ export interface DocumentExample {
 
 /** Une couleur que le type laisse personnaliser, avec le vocabulaire du type (pages, participants…). */
 export interface AppearanceField {
-  /** `entity` : en-têtes ; `relation` : second type de forme (associations, notes) ; `edge` : liens et traits. */
-  key: 'entity' | 'relation' | 'edge'
+  /** `entity` : en-têtes ; `relation` : second type de forme (associations, notes) ; `edge` : liens et traits ; `text` : écritures. */
+  key: 'entity' | 'relation' | 'edge' | 'text'
   label: string
   hint: string
 }

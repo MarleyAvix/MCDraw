@@ -100,6 +100,7 @@ export const sequenceDocument: DocumentType<SeqDocument> = {
     { key: 'entity', label: 'Participants', hint: 'Fond des boîtes des participants' },
     { key: 'relation', label: 'Notes', hint: 'Fond des notes' },
     { key: 'edge', label: 'Flèches', hint: 'Messages, lignes de vie et numéros' },
+    { key: 'text', label: 'Écritures', hint: 'Noms, étiquettes et textes du diagramme' },
   ],
   useDocument: useSequenceDocument,
   examples: SEQUENCE_EXAMPLES.map(({ id, label, description }) => ({ id, label, description, category: 'modele' })),

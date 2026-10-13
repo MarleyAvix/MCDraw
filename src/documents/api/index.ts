@@ -120,6 +120,7 @@ export const apiDocument: DocumentType<ApiDocument> = {
   appearance: [
     { key: 'entity', label: 'Routes et schémas', hint: 'En-tête des routes, des chemins et des schémas' },
     { key: 'edge', label: 'Liens', hint: 'Traits entre les chemins et les schémas' },
+    { key: 'text', label: 'Écritures', hint: 'Noms, étiquettes et textes du diagramme' },
   ],
   useDocument: useApiDocument,
   examples: API_EXAMPLES.map(({ id, label, description }) => ({ id, label, description, category: 'modele' })),
