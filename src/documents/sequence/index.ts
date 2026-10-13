@@ -16,6 +16,7 @@ import {
   StickyNote,
   TextCursorInput,
   UserPlus,
+  Webhook,
   Workflow,
 } from 'lucide-vue-next'
 import type { ActionContext, DocumentApi, DocumentType } from '../../core/documentType'
@@ -27,6 +28,7 @@ import type { SeqDocument } from './model'
 import SequenceCanvas from './SequenceCanvas.vue'
 import SequenceTextPanel from './SequenceTextPanel.vue'
 import EditSequenceModal from './EditSequenceModal.vue'
+import FromApiModal from './FromApiModal.vue'
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null
 
@@ -102,7 +104,10 @@ export const sequenceDocument: DocumentType<SeqDocument> = {
 
   panels: [{ id: 'text', side: 'left', Component: SequenceTextPanel, width: 360, visible: () => useSequenceStore().showTextPanel }],
 
-  modals: [{ id: 'edit', Component: EditSequenceModal, visible: () => !!useSequenceStore().editing, key: () => useSequenceStore().editing }],
+  modals: [
+    { id: 'edit', Component: EditSequenceModal, visible: () => !!useSequenceStore().editing, key: () => useSequenceStore().editing },
+    { id: 'from-api', Component: FromApiModal, visible: () => useSequenceStore().showApiModal },
+  ],
 
   actions: [
     { id: 'participant', label: 'Participant', title: 'Ajouter un participant (acteur, service, base de données)', icon: UserPlus, iconClass: 'text-indigo-600', hint: 'P', group: 'create', run: addParticipant },
@@ -158,6 +163,7 @@ export const sequenceDocument: DocumentType<SeqDocument> = {
       run: () => { const s = useSequenceStore(); s.showTextPanel = !s.showTextPanel },
       pressed: () => useSequenceStore().showTextPanel,
     },
+    { id: 'from-api', label: 'Depuis l’API', title: 'Générer le diagramme d’une route décrite dans l’onglet « API REST »', icon: Webhook, iconClass: 'text-sky-600', compact: true, group: 'tools', run: () => { useSequenceStore().showApiModal = true } },
     { id: 'settings', label: 'Réglages', title: 'Titre et numérotation des messages', icon: SlidersHorizontal, compact: true, group: 'tools', run: () => { useSequenceStore().editing = 'doc' } },
     { id: 'fit', label: 'Recadrer', title: 'Afficher tout le diagramme', icon: Maximize2, compact: true, run: () => void useVueFlow('seq-diagram').fitView({ padding: 0.28, duration: 300 }) },
     {

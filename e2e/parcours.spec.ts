@@ -787,6 +787,22 @@ test.describe('parcours principaux', () => {
       await expect(dialog.getByRole('button', { name: 'Enregistrer' })).toBeDisabled()
     })
 
+    test('« Depuis l’API » génère le diagramme d’une route, et Ctrl+Z restitue le précédent', async ({ page }) => {
+      page.on('dialog', (d) => d.accept())
+      await open(page)
+      const before = await text(page).inputValue()
+      await page.getByRole('button', { name: 'Depuis l’API' }).click()
+      const dialog = page.getByRole('dialog')
+      await dialog.getByLabel('Route à représenter').selectOption({ label: 'POST /orders — Passer une commande' })
+      await dialog.getByRole('button', { name: 'Générer' }).click()
+      await expect(diagram(page)).toContainText('POST /orders')
+      await expect(diagram(page)).toContainText('Vérifier le jeton')
+      await expect(diagram(page)).toContainText('INSERT INTO orders')
+      await expect(text(page)).toHaveValue(/alt 201 Créé/)
+      await page.keyboard.press('Control+z')
+      await expect(text(page)).toHaveValue(before)
+    })
+
     test('les exports Mermaid et PlantUML se téléchargent', async ({ page }) => {
       await open(page)
       const grab = async (name: string, file: string) => {

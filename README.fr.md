@@ -99,6 +99,7 @@ Un outil de diagrammes léger et rapide, dans le navigateur : des modèles conce
 - Texte ⇄ diagramme, en direct et dans les deux sens, dans une syntaxe proche de Mermaid : `Client ->> API: POST /login`, `->>` appel, `-->>` retour, `-)` asynchrone, `-x` perdu, `->>+` / `-->>-` pour ouvrir / fermer une activation, `Note over A, B: …`. Un `sequenceDiagram` Mermaid collé tel quel fonctionne ; un participant cité est créé automatiquement.
 - **Tous les blocs** : `alt` / `else`, `opt`, `loop`, `par` / `and`, `critical` / `option`, `break`, imbriqués et fermés par `end`.
 - **Des boutons en plus du texte** : ajouter un participant, un message, une note ou un bloc ; le bouton *Bloc* enveloppe les messages sélectionnés ; **Monter / Descendre / Gauche / Droite** réordonnent ; double-clic pour modifier un élément (renommer un participant met à jour ses messages) ; `Suppr` le retire.
+- **Depuis votre API** : choisissez une route décrite dans l'onglet API REST et obtenez sa séquence — client, API, authentification si la route est protégée, base de données, puis une section `alt` par réponse déclarée. Annulable.
 - Participants de type acteur ou base de données, libellés affichés facultatifs, numérotation des messages, textes sur plusieurs lignes (`<br>`).
 - Exports : **Mermaid** (`.mmd`, copie dans le presse-papiers, ou fichier Markdown avec le bloc) et **PlantUML** (`.puml`). Trois modèles de départ (connexion, commande, synchronisation avec reprise).
 

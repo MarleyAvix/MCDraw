@@ -149,6 +149,8 @@ export const useSequenceStore = defineStore('sequence', () => {
   const selection = ref<string[]>([])
   /** Élément ou participant en cours d'édition (`p:Nom`), `doc` pour les réglages généraux. */
   const editing = ref<string | null>(null)
+  /** Fenêtre « Depuis l'API » ouverte. */
+  const showApiModal = ref(false)
   const showTextPanel = ref(typeof window !== 'undefined' && window.innerWidth >= 1024)
   const highlightId = ref<string | null>(null)
   const view = ref('diagram')
@@ -481,7 +483,7 @@ export const useSequenceStore = defineStore('sequence', () => {
   const { undo, redo, canUndo, canRedo } = useHistory({ state: schema, load })
 
   return {
-    doc, selection, editing, showTextPanel, highlightId, view,
+    doc, selection, editing, showApiModal, showTextPanel, highlightId, view,
     schema, layout, participants, selectedItems, selectedParticipant,
     flash, addParticipant, setParticipant, usageOf, removeParticipants, moveParticipantBy, canMoveParticipant,
     addMessage, addNote, addBlock, setMessage, setNote, setBlock, unwrapBlock, setMeta, removeItems, removeSelection, moveItemBy, canMoveItem,

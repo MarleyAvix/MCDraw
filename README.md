@@ -99,6 +99,7 @@ A light, fast, in-browser diagramming tool: Merise conceptual models (MCD) that 
 - Text ⇄ diagram, live and two-way, in a syntax close to Mermaid: `Client ->> API: POST /login`, `->>` call, `-->>` reply, `-)` async, `-x` lost, `->>+` / `-->>-` to open / close an activation, `Note over A, B: …`. Pasting a Mermaid `sequenceDiagram` works as is; a participant you mention is created for you.
 - **Every block**: `alt` / `else`, `opt`, `loop`, `par` / `and`, `critical` / `option`, `break`, nested and closed by `end`.
 - **Buttons as well as text**: add a participant, message, note or block; the *Block* button wraps the selected messages; **Up / Down / Left / Right** reorder; double-click an element to edit it (renaming a participant updates its messages); `Delete` removes it.
+- **From your API**: pick a route described in the REST API tab and get its sequence — client, API, authentication when the route is protected, database, then one `alt` section per declared response. Undoable.
 - Actor and database participants, optional display labels, message numbering, multi-line texts (`<br>`).
 - Exports: **Mermaid** (`.mmd`, copy to clipboard, or a Markdown file with the fenced block) and **PlantUML** (`.puml`). Three starter templates (login, checkout, sync with recovery).
 
