@@ -117,7 +117,7 @@ test.describe('parcours principaux', () => {
       return { name: download.suggestedFilename(), bytes: await readFile((await download.path())!) }
     }
     await page.goto('/')
-    for (const [tab, file] of [['Plan de site', 'tree'], ['Carte mentale', 'map'], ['Séquence', 'diagram'], ['API REST', 'routes']] as const) {
+    for (const [tab, file] of [['Plan de site', 'tree'], ['Carte mentale', 'map'], ['Séquence', 'diagram'], ['États', 'diagram'], ['API REST', 'routes']] as const) {
       await page.getByRole('tab', { name: tab, exact: true }).click()
       await expect(page.locator('.vue-flow__node').first()).toBeVisible()
       const png = await grab('Image PNG')
@@ -859,6 +859,139 @@ test.describe('parcours principaux', () => {
       await expect(ring).toBeVisible()
       await page.locator('.vue-flow').first().evaluate((el) => el.classList.add('exporting')) // état pendant la capture
       await expect(ring).toBeHidden()
+    })
+  })
+
+  test.describe('États', () => {
+    const open = async (page: Page) => {
+      await page.goto('/')
+      await page.getByRole('tab', { name: 'États', exact: true }).click()
+    }
+    const text = (page: Page) => page.getByLabel('Description textuelle du diagramme d’états')
+    const diagram = (page: Page) => page.getByRole('img', { name: /Diagramme d’états/ })
+    const item = (page: Page, key: string) => diagram(page).locator(`g[data-id="${key}"]`)
+
+    test('affiche le modèle de départ avec son texte', async ({ page }) => {
+      await open(page)
+      await expect(diagram(page)).toBeVisible()
+      await expect(diagram(page)).toContainText('Paiement en cours')
+      await expect(diagram(page)).toContainText('Livraison')
+      await expect(text(page)).toHaveValue(/state Contrôle <<choice>>/)
+      await expect(page.getByText('Conception OK')).toBeVisible()
+    })
+
+    test('la saisie texte met le diagramme à jour, une erreur le laisse intact', async ({ page }) => {
+      await open(page)
+      await text(page).fill('[*] --> Brouillon\nBrouillon --> Envoyé : envoyer')
+      await expect(item(page, 's:Envoyé')).toBeVisible()
+      await text(page).fill('[*] --> Brouillon\nBrouillon --> Envoyé : envoyer\nstate X {')
+      await expect(page.getByText('pas fermé')).toBeVisible()
+      await expect(item(page, 's:Envoyé')).toBeVisible()
+    })
+
+    test('un diagramme Mermaid collé tel quel est compris', async ({ page }) => {
+      await open(page)
+      await text(page).fill(['stateDiagram-v2', '    [*] --> Still', '    Still --> Moving : push', '    state Moving {', '        [*] --> Slow', '        Slow --> Fast : accelerate', '    }', '    Moving --> [*]'].join('\n'))
+      await expect(item(page, 's:Fast')).toBeVisible()
+      await expect(diagram(page)).toContainText('accelerate')
+      await expect(page.getByText('Ligne non reconnue')).toHaveCount(0)
+    })
+
+    test('le bouton État ajoute un état, renomme et le texte suit ; Ctrl+Z annule', async ({ page }) => {
+      await open(page)
+      await text(page).fill('[*] --> A\nA --> B')
+      await expect(item(page, 's:B')).toBeVisible()
+      await page.getByRole('button', { name: 'État', exact: true }).click()
+      const dialog = page.getByRole('dialog')
+      await dialog.getByLabel('Nom de l’état').fill('Archivé')
+      await dialog.getByLabel('Actions de l’état').fill('entrée / ranger')
+      await dialog.getByRole('button', { name: 'Enregistrer' }).click()
+      await expect(item(page, 's:Archivé')).toBeVisible()
+      await expect(text(page)).toHaveValue(/Archivé : entrée \/ ranger/)
+      await page.keyboard.press('Control+z')
+      await expect(item(page, 's:Archivé')).toHaveCount(0)
+    })
+
+    test('le bouton Transition relie deux états, Composite en enveloppe', async ({ page }) => {
+      await open(page)
+      await text(page).fill('state A\nstate B\nstate C')
+      await expect(item(page, 's:C')).toBeVisible()
+      await item(page, 's:A').click()
+      await page.getByRole('button', { name: 'Transition', exact: true }).click()
+      const dialog = page.getByRole('dialog')
+      await dialog.getByLabel('Événement déclencheur').fill('go')
+      await dialog.getByRole('button', { name: 'Enregistrer' }).click()
+      await expect(text(page)).toHaveValue(/[A-C] --> [A-C] : go/)
+      await item(page, 's:B').click()
+      await item(page, 's:C').click({ modifiers: ['Control'] })
+      await page.getByRole('button', { name: 'Composite', exact: true }).click()
+      await page.getByRole('dialog').getByRole('button', { name: 'Enregistrer' }).click()
+      await expect(text(page)).toHaveValue(/state Groupe \{\n {2}state B\n {2}state C/)
+    })
+
+    test('la simulation fait avancer l’état courant jusqu’à la fin', async ({ page }) => {
+      await open(page)
+      await text(page).fill('[*] --> A\nA --> B : go\nB --> [*] : fin')
+      await expect(item(page, 's:B')).toBeVisible()
+      await page.getByRole('button', { name: 'Simuler', exact: true }).click()
+      await expect(page.getByTestId('sim-current')).toHaveText('A')
+      await page.getByRole('group', { name: 'Transitions possibles' }).getByRole('button', { name: /go/ }).click()
+      await expect(page.getByTestId('sim-current')).toHaveText('B')
+      await page.getByRole('group', { name: 'Transitions possibles' }).getByRole('button', { name: /fin/ }).click()
+      await expect(page.getByText('Terminé')).toBeVisible()
+      await page.getByRole('button', { name: 'Recommencer' }).click()
+      await expect(page.getByTestId('sim-current')).toHaveText('A')
+      await page.getByRole('button', { name: 'Arrêter' }).click()
+      await expect(page.getByTestId('sim-current')).toHaveCount(0)
+    })
+
+    test('le linter signale un état inaccessible et mène à lui d’un clic', async ({ page }) => {
+      await open(page)
+      await text(page).fill('[*] --> A\nA --> B\nstate Orphelin')
+      await expect(item(page, 's:Orphelin')).toBeVisible()
+      await page.getByRole('button', { name: /1 remarque/ }).click()
+      await page.getByRole('button', { name: /Orphelin/ }).click()
+      await expect(diagram(page).locator('.seq-flash-rect, .seq-sel-rect').first()).toBeVisible()
+    })
+
+    test('le tableau des transitions liste les états et les événements', async ({ page }) => {
+      await open(page)
+      await text(page).fill('[*] --> A\nA --> B : go\nB --> A : retour')
+      await expect(item(page, 's:B')).toBeVisible()
+      await page.getByRole('button', { name: 'Tableau', exact: true }).click()
+      const table = page.getByRole('table', { name: /Transitions par état/ })
+      await expect(table).toContainText('go')
+      await expect(table).toContainText('retour')
+      await expect(table.getByRole('row')).toHaveCount(4) // en-tête, début, A, B
+    })
+
+    test('les exports Mermaid et PlantUML se téléchargent', async ({ page }) => {
+      await open(page)
+      const grab = async (name: string, file: string) => {
+        const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name, exact: true }).click()])
+        expect(download.suggestedFilename()).toBe(file)
+        return readFile((await download.path())!, 'utf-8')
+      }
+      const mermaid = await grab('Mermaid', 'states.mmd')
+      expect(mermaid).toContain('stateDiagram-v2')
+      expect(mermaid).toContain('state Livraison {')
+      expect(mermaid).toContain('Panier --> Paiement : payer [panier non vide]')
+      const puml = await grab('PlantUML', 'states.puml')
+      expect(puml).toContain('@startuml')
+      expect(puml).toContain('state Livraison {')
+    })
+
+    test('la sélection et l’état courant n’apparaissent pas dans l’image exportée', async ({ page }) => {
+      await open(page)
+      await item(page, 's:Panier').click()
+      const ring = diagram(page).locator('.seq-sel-rect').first()
+      await expect(ring).toBeVisible()
+      await page.getByRole('button', { name: 'Simuler', exact: true }).click()
+      const sim = diagram(page).locator('.sim-ring')
+      await expect(sim).toBeVisible()
+      await page.locator('.vue-flow').first().evaluate((el) => el.classList.add('exporting')) // état pendant la capture
+      await expect(ring).toBeHidden()
+      await expect(sim).toBeHidden()
     })
   })
 })

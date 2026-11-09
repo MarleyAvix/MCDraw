@@ -3,7 +3,7 @@
 # MCDraw
 
 **Dessinez votre modèle de données. Obtenez votre base.**<br/>
-Un outil de diagrammes léger et rapide, dans le navigateur : des modèles conceptuels Merise (MCD) qui deviennent du SQL, du code d'ORM et des données de test — et des schémas de brainstorming simples comme le plan de site et la carte mentale — des descriptions d'API REST qui s'exportent en OpenAPI — et des diagrammes de séquence qui s'exportent en Mermaid et PlantUML.
+Un outil de diagrammes léger et rapide, dans le navigateur : des modèles conceptuels Merise (MCD) qui deviennent du SQL, du code d'ORM et des données de test — et des schémas de brainstorming simples comme le plan de site et la carte mentale — des descriptions d'API REST qui s'exportent en OpenAPI — des diagrammes de séquence qui s'exportent en Mermaid et PlantUML — et des diagrammes d'états que l'on peut simuler.
 
 [🇬🇧 English](README.md) · [🇫🇷 Français](README.fr.md)
 
@@ -33,6 +33,7 @@ Un outil de diagrammes léger et rapide, dans le navigateur : des modèles conce
 | **Plan de site** | Saisissez vos pages en liste indentée *ou* dessinez l'arbre — les deux restent synchronisés. Export d'une liste **Markdown** ou d'un **`sitemap.xml`** (sitemaps.org) |
 | **Carte mentale** | Jetez vos idées en liste indentée ou faites pousser les branches sur la carte. Mise en page équilibrée autour de l'idée centrale, une couleur par branche, branches repliables. Export **Markdown** ou **OPML** (XMind, MindNode, OmniOutliner…) |
 | **Séquence** | Écrivez les échanges entre services en texte (syntaxe proche de Mermaid — collez un diagramme existant) *ou* construisez-les avec des boutons : participants, messages, notes et tous les blocs (`alt`, `opt`, `loop`, `par`, `critical`, `break`), barres d'activation, numérotation. Export **Mermaid** (README, GitLab, Notion) ou **PlantUML** |
+| **États** | Dessinez un cycle de vie en texte (syntaxe proche de Mermaid — collez un diagramme existant) *ou* avec des boutons : états, transitions `événement [garde] / action`, points de départ et d'arrivée, choix, fork / join et **états composites**. **Simulez-le** (cliquez un événement pour faire avancer l'état courant, avec la trace), profitez d'un **linter** de conception (états inaccessibles, impasses, transitions ambiguës), d'un **tableau états × événements**, et exportez en **Mermaid** ou **PlantUML** |
 | **API REST** | Décrivez ressources et routes (paramètres, en-têtes, corps, réponses, pagination, authentification) en texte ou sur l'arbre des routes ; un linter de conception vérifie les noms et les codes HTTP. Export **OpenAPI 3.1** (YAML / JSON), **client TypeScript** typé, routes **ASP.NET Core**, fichier de requêtes **`.http`** ou documentation **Markdown** — import d'un fichier OpenAPI existant, ou génération du CRUD directement depuis votre MCD |
 
 <table>
@@ -55,6 +56,12 @@ Un outil de diagrammes léger et rapide, dans le navigateur : des modèles conce
   </tr>
   <tr>
     <td colspan="2" align="center"><sub>Séquence : une ligne par message, alternatives et activations, exportées en Mermaid ou PlantUML</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/screenshots/state.png" alt="Diagramme d'états : texte à gauche, diagramme et simulation à droite" /></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><sub>États : un état composite, un choix, et la simulation qui propose les transitions possibles</sub></td>
   </tr>
 </table>
 
@@ -102,6 +109,16 @@ Un outil de diagrammes léger et rapide, dans le navigateur : des modèles conce
 - **Depuis votre API** : choisissez une route décrite dans l'onglet API REST et obtenez sa séquence — client, API, authentification si la route est protégée, base de données, puis une section `alt` par réponse déclarée. Annulable.
 - Participants de type acteur ou base de données, libellés affichés facultatifs, numérotation des messages, textes sur plusieurs lignes (`<br>`).
 - Exports : **Mermaid** (`.mmd`, copie dans le presse-papiers, ou fichier Markdown avec le bloc) et **PlantUML** (`.puml`). Trois modèles de départ (connexion, commande, synchronisation avec reprise).
+
+### Diagramme d'états
+
+- Texte ⇄ diagramme, en direct et dans les deux sens, dans une syntaxe proche de Mermaid : `[*] --> Brouillon`, `Brouillon --> Envoyé : envoyer [complet] / notifier`, `state "Libellé long" as Id`, `state Contrôle <<choice>>`, `state Bloc { … }`, `Id : entrée / action`, `note right of Id : texte`. Un `stateDiagram-v2` Mermaid collé tel quel fonctionne ; un état cité est créé automatiquement.
+- **États composites** qui contiennent leurs propres états, début et fin ; une transition vers un composite y entre par son état initial. **Choix**, **fork** et **join** ; boucles sur un même état.
+- **Des boutons en plus du texte** : ajouter un état, une transition, un choix ou un composite (le bouton *Composite* enveloppe les états sélectionnés) ; **Monter / Descendre** réordonnent ; double-clic pour modifier un élément (renommer un état met à jour ses transitions) ; `Suppr` le retire.
+- **Simulation** : appuyez sur *Simuler* et cliquez les transitions possibles pour faire avancer l'état courant ; le chemin parcouru est gardé et la fin détectée. Elle n'est pas enregistrée avec le diagramme.
+- **Linter de conception** : pas d'état initial, états inaccessibles, impasses, même événement vers plusieurs états, transitions en double, choix sans sortie ni garde, blocs vides. Un clic sur une remarque mène à l'élément.
+- **Tableau des transitions** : états × événements, avec les cas non traités bien visibles ; copie en Markdown ou téléchargement en CSV.
+- Exports : **Mermaid** (`.mmd`, copie dans le presse-papiers, ou fichier Markdown avec le bloc) et **PlantUML** (`.puml`). Trois modèles de départ (cycle de vie d'une commande, ticket de support, feu tricolore).
 
 ### Partout
 
@@ -169,7 +186,8 @@ src/
 │  ├─ sitemap/    Plan de site
 │  ├─ mindmap/    Carte mentale
 │  ├─ api/        API REST
-│  └─ sequence/   Diagramme de séquence
+│  ├─ sequence/   Diagramme de séquence
+│  └─ state/      Diagramme d'états
 ├─ engine/        logique pure : MCD → MLD, SQL, ORM, données de test, liens de partage…
 ├─ composables/   historique, sauvegarde, outils du canvas, import/export de fichiers…
 └─ components/    canvas, panneaux et fenêtres du type base de données

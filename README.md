@@ -3,7 +3,7 @@
 # MCDraw
 
 **Draw your data model. Get your database.**<br/>
-A light, fast, in-browser diagramming tool: Merise conceptual models (MCD) that turn into SQL, ORM code and test data — plus simple brainstorming diagrams such as site maps and mind maps — REST API descriptions that export to OpenAPI, and sequence diagrams that export to Mermaid and PlantUML.
+A light, fast, in-browser diagramming tool: Merise conceptual models (MCD) that turn into SQL, ORM code and test data — plus simple brainstorming diagrams such as site maps and mind maps — REST API descriptions that export to OpenAPI, sequence diagrams that export to Mermaid and PlantUML, and state diagrams you can simulate.
 
 [🇬🇧 English](README.md) · [🇫🇷 Français](README.fr.md)
 
@@ -33,6 +33,7 @@ A light, fast, in-browser diagramming tool: Merise conceptual models (MCD) that 
 | **Site map** | Type your pages as an indented list *or* draw the tree — both stay in sync. Export a **Markdown** list or a **`sitemap.xml`** (sitemaps.org) |
 | **Mind map** | Jot ideas as an indented list or grow the branches on the map. Balanced layout around the central idea, one colour per branch, collapsible branches. Export **Markdown** or **OPML** (XMind, MindNode, OmniOutliner…) |
 | **Sequence** | Write the exchanges between services as text (Mermaid-like syntax — paste an existing diagram) *or* build them with buttons: participants, messages, notes and every block (`alt`, `opt`, `loop`, `par`, `critical`, `break`), activation bars, numbering. Export **Mermaid** (README, GitLab, Notion) or **PlantUML** |
+| **States** | Draw a life cycle as text (Mermaid-like syntax — paste an existing diagram) *or* with buttons: states, transitions `event [guard] / action`, initial and final points, choices, fork / join and **composite states**. **Simulate** it (click an event to move the current state, with a trace), get a design **linter** (unreachable states, dead ends, ambiguous transitions), a **state × event table**, and export **Mermaid** or **PlantUML** |
 | **REST API** | Describe resources and routes (parameters, headers, body, responses, pagination, auth) as text or on the route tree; a design linter checks naming and HTTP codes. Export **OpenAPI 3.1** (YAML / JSON), a typed **TypeScript client**, **ASP.NET Core** endpoints, a **`.http`** request file or **Markdown** docs — import an existing OpenAPI file, or generate the CRUD straight from your MCD |
 
 <table>
@@ -55,6 +56,12 @@ A light, fast, in-browser diagramming tool: Merise conceptual models (MCD) that 
   </tr>
   <tr>
     <td colspan="2" align="center"><sub>Sequence: one line per message, alternatives and activations, exported to Mermaid or PlantUML</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/screenshots/state.png" alt="State diagram: text on the left, diagram and simulation on the right" /></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><sub>States: a composite state, a choice, and the simulation offering the possible transitions</sub></td>
   </tr>
 </table>
 
@@ -102,6 +109,16 @@ A light, fast, in-browser diagramming tool: Merise conceptual models (MCD) that 
 - **From your API**: pick a route described in the REST API tab and get its sequence — client, API, authentication when the route is protected, database, then one `alt` section per declared response. Undoable.
 - Actor and database participants, optional display labels, message numbering, multi-line texts (`<br>`).
 - Exports: **Mermaid** (`.mmd`, copy to clipboard, or a Markdown file with the fenced block) and **PlantUML** (`.puml`). Three starter templates (login, checkout, sync with recovery).
+
+### State diagram
+
+- Text ⇄ diagram, live and two-way, in a syntax close to Mermaid: `[*] --> Draft`, `Draft --> Sent : send [complete] / notify`, `state "Long label" as Id`, `state Check <<choice>>`, `state Block { … }`, `Id : entry / action`, `note right of Id : text`. Pasting a Mermaid `stateDiagram-v2` works as is; a state you mention is created for you.
+- **Composite states** that hold their own states, start and end points; a transition to a composite enters it through its initial state. **Choice**, **fork** and **join**; self-loops.
+- **Buttons as well as text**: add a state, a transition, a choice or a composite (the *Composite* button wraps the selected states); **Up / Down** reorder; double-click an element to edit it (renaming a state updates its transitions); `Delete` removes it.
+- **Simulation**: press *Simulate* and click the possible transitions to move the current state; the path taken is kept and the ending is detected. It is not saved with the diagram.
+- **Design linter**: no initial state, unreachable states, dead ends, the same event leading to several states, duplicate transitions, choices without exits or guards, empty blocks. Click a remark to jump to the element.
+- **Transition table**: states × events, with the unhandled cases visible; copy it as Markdown or download it as CSV.
+- Exports: **Mermaid** (`.mmd`, copy to clipboard, or a Markdown file with the fenced block) and **PlantUML** (`.puml`). Three starter templates (order life cycle, support ticket, traffic light).
 
 ### Everywhere
 
@@ -169,7 +186,8 @@ src/
 │  ├─ sitemap/    Site map
 │  ├─ mindmap/    Mind map
 │  ├─ api/        REST API
-│  └─ sequence/   Sequence diagram
+│  ├─ sequence/   Sequence diagram
+│  └─ state/      State diagram
 ├─ engine/        Pure logic: MCD → MLD, SQL, ORM, seed data, share links…
 ├─ composables/   History, persistence, canvas tools, file I/O…
 └─ components/    Canvas, panels and modals of the database type
