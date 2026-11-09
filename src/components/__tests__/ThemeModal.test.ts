@@ -31,7 +31,7 @@ function mountModal(typeId = 'mcd', pinia = createPinia()) {
 describe('ThemeModal', () => {
   beforeEach(() => {
     document.body.innerHTML = ''
-    for (const id of ['mcd', 'sitemap', 'api', 'sequence', 'mindmap']) useAppearance(id).reset()
+    for (const id of ['mcd', 'sitemap', 'api', 'sequence', 'state', 'mindmap']) useAppearance(id).reset()
   })
 
   it("applique une couleur d'entité et choisit un texte lisible", async () => {
@@ -84,6 +84,10 @@ describe('ThemeModal', () => {
     w = mountModal('sequence')
     expect(labels()).toEqual(['Participants', 'Notes', 'Flèches', 'Écritures'])
     w.unmount()
+    document.body.innerHTML = ''
+    w = mountModal('state')
+    expect(labels()).toEqual(['États', 'Notes', 'Transitions', 'Écritures'])
+    w.unmount()
   })
 
   it('chaque type garde ses couleurs : celles du MCD ne touchent pas le plan de site', async () => {
@@ -101,7 +105,7 @@ describe('ThemeModal', () => {
   it('les écritures se colorent pour chaque type, la carte mentale n’ayant que cela à régler', async () => {
     const { getDocumentType } = await import('../../core/documentType')
     registerDocuments()
-    for (const id of ['mcd', 'sitemap', 'api', 'sequence', 'mindmap']) expect(getDocumentType(id)?.appearance?.some((f) => f.key === 'text'), id).toBe(true)
+    for (const id of ['mcd', 'sitemap', 'api', 'sequence', 'state', 'mindmap']) expect(getDocumentType(id)?.appearance?.some((f) => f.key === 'text'), id).toBe(true)
     expect(getDocumentType('mindmap')?.appearance).toHaveLength(1)
 
     const w = mountModal('mindmap')
