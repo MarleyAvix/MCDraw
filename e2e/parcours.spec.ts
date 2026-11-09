@@ -995,6 +995,25 @@ test.describe('parcours principaux', () => {
       expect(puml).toContain('Forme <|-- Cercle')
     })
 
+    test('« Depuis l’API » génère les classes des ressources choisies, et Ctrl+Z restitue le précédent', async ({ page }) => {
+      page.on('dialog', (d) => void d.accept())
+      await open(page)
+      const before = await text(page).inputValue()
+      await page.getByRole('button', { name: 'Depuis l’API' }).click()
+      const dialog = page.getByRole('dialog')
+      await expect(dialog.getByLabel('Ressource Product', { exact: true })).toBeChecked()
+      for (const name of ['Product', 'ProductInput', 'OrderInput']) await dialog.getByLabel(`Ressource ${name}`, { exact: true }).uncheck()
+      await expect(dialog).toContainText('3 classe(s), 2 relation(s)') // Order, OrderStatus, OrderLine ; l’association et la dépendance
+      await dialog.getByRole('button', { name: 'Générer' }).click()
+      await expect(box(page, 'Order')).toContainText('+total: number')
+      await expect(box(page, 'OrderStatus')).toContainText('«enumeration»')
+      await expect(box(page, 'OrderLine')).toBeVisible()
+      await expect(box(page, 'Product')).toHaveCount(0)
+      await expect(text(page)).toHaveValue(/OrderLine "0\.\.\*" <-- Order : lines/)
+      await page.getByRole('button', { name: 'Annuler (Ctrl+Z)' }).click()
+      await expect(text(page)).toHaveValue(before)
+    })
+
     test('les classes se déplacent à la glisse, sans ouvrir la fenêtre, et « Organiser » les replace', async ({ page }) => {
       await open(page)
       const pos = async (n: string) => (await box(page, n).locator('rect.stroke-slate-600').boundingBox())!

@@ -1,6 +1,6 @@
 import { computed, toRef, type Ref } from 'vue'
 import { useVueFlow } from '@vue-flow/core'
-import { Boxes, ClipboardCopy, FileCode2, FileText, LayoutGrid, Maximize2, RotateCcw, SlidersHorizontal, Spline, SquarePlus, TextCursorInput } from 'lucide-vue-next'
+import { Boxes, ClipboardCopy, FileCode2, FileText, LayoutGrid, Maximize2, RotateCcw, SlidersHorizontal, Spline, SquarePlus, TextCursorInput, Webhook } from 'lucide-vue-next'
 import type { ActionContext, DocumentApi, DocumentType } from '../../core/documentType'
 import { downloadBlob } from '../../composables/useFileIO'
 import { CLASS_EXAMPLES, useClassStore } from './classStore'
@@ -10,6 +10,7 @@ import type { ClassDocument } from './model'
 import ClassCanvas from './ClassCanvas.vue'
 import ClassTextPanel from './ClassTextPanel.vue'
 import EditClassModal from './EditClassModal.vue'
+import FromApiModal from './FromApiModal.vue'
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null
 
@@ -84,7 +85,10 @@ export const classesDocument: DocumentType<ClassDocument> = {
 
   panels: [{ id: 'text', side: 'left', Component: ClassTextPanel, width: 360, visible: () => useClassStore().showTextPanel }],
 
-  modals: [{ id: 'edit', Component: EditClassModal, visible: () => !!useClassStore().editing, key: () => useClassStore().editing }],
+  modals: [
+    { id: 'edit', Component: EditClassModal, visible: () => !!useClassStore().editing, key: () => useClassStore().editing },
+    { id: 'from-api', Component: FromApiModal, visible: () => useClassStore().showApiModal },
+  ],
 
   actions: [
     { id: 'class', label: 'Classe', title: 'Ajouter une classe, une interface ou une énumération', icon: SquarePlus, iconClass: 'text-indigo-600', hint: 'C', group: 'create', run: addClass },
@@ -108,6 +112,7 @@ export const classesDocument: DocumentType<ClassDocument> = {
       run: () => { const s = useClassStore(); s.showTextPanel = !s.showTextPanel },
       pressed: () => useClassStore().showTextPanel,
     },
+    { id: 'from-api', label: 'Depuis l’API', title: 'Générer les classes à partir des ressources décrites dans l’onglet « API REST »', icon: Webhook, iconClass: 'text-sky-600', compact: true, group: 'tools', run: () => { useClassStore().showApiModal = true } },
     {
       id: 'auto-layout',
       label: 'Organiser',

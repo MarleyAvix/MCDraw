@@ -110,6 +110,8 @@ export const useClassStore = defineStore('classes', () => {
   const selection = ref<string[]>([])
   /** Élément en cours d'édition : `c:Nom`, une clé de relation, ou `doc` pour les réglages généraux. */
   const editing = ref<string | null>(null)
+  /** Fenêtre « Depuis l'API » ouverte. */
+  const showApiModal = ref(false)
   const showTextPanel = ref(typeof window !== 'undefined' && window.innerWidth >= 1024)
   const highlightId = ref<string | null>(null)
   const view = ref('diagram')
@@ -298,7 +300,7 @@ export const useClassStore = defineStore('classes', () => {
   const { undo, redo, canUndo, canRedo } = useHistory({ state: schema, load })
 
   return {
-    doc, selection, editing, showTextPanel, highlightId, view,
+    doc, selection, editing, showApiModal, showTextPanel, highlightId, view,
     schema, layout, relKeys, selectedClasses, selectedRelations,
     flash, addClass, setClass, moveClasses, autoLayout, usageOf, removeClasses, addRelation, setRelation, removeRelations, setMeta, removeSelection,
     copy, paste, duplicate, selectAll, searchIndex, load, importSchema, reset, loadExample,
