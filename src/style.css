@@ -139,6 +139,8 @@ input[type='text'], input:not([type]) { cursor: text; }
 .seq-sel-rect { fill: rgb(99 102 241 / 0.1); stroke: #6366f1; }
 .seq-flash-rect { fill: rgb(245 158 11 / 0.18); stroke: #f59e0b; animation: seq-flash 0.7s ease-in-out 3; }
 @keyframes seq-flash { 50% { opacity: 0.25; } }
-.exporting .seq-sel-rect, .exporting .seq-flash-rect { display: none; }
+.class-sel-line { stroke: rgb(99 102 241 / 0.28); }
+.class-flash-line { stroke: rgb(245 158 11 / 0.45); animation: seq-flash 0.7s ease-in-out 3; }
+.exporting .seq-sel-rect, .exporting .seq-flash-rect, .exporting .class-sel-line, .exporting .class-flash-line { display: none; }
 /* Le diagramme de séquence est un seul nœud non sélectionnable : Vue Flow le rendrait sinon insensible à la souris, alors que ses éléments se cliquent. */
-.vue-flow__node-sequence { pointer-events: all !important; }
+.vue-flow__node-sequence, .vue-flow__node-classes { pointer-events: all !important; }

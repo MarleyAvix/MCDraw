@@ -861,4 +861,147 @@ test.describe('parcours principaux', () => {
       await expect(ring).toBeHidden()
     })
   })
+
+  test.describe('Classes', () => {
+    const open = async (page: Page) => {
+      await page.goto('/')
+      await page.getByRole('tab', { name: 'Classes', exact: true }).click()
+    }
+    const text = (page: Page) => page.getByLabel('Description textuelle du diagramme de classes')
+    const diagram = (page: Page) => page.getByRole('img', { name: 'Diagramme de classes' })
+    const box = (page: Page, name: string) => diagram(page).locator(`g[data-id="c:${name}"]`)
+
+    test('affiche le modèle de départ avec son texte', async ({ page }) => {
+      await open(page)
+      await expect(diagram(page)).toBeVisible()
+      await expect(diagram(page)).toContainText('Formes géométriques')
+      await expect(diagram(page)).toContainText('«interface»')
+      await expect(box(page, 'Cercle')).toContainText('-rayon: double')
+      await expect(text(page)).toHaveValue(/class Forme \{/)
+    })
+
+    test('la saisie texte dessine le diagramme en direct et garde la dernière version valide en cas d’erreur', async ({ page }) => {
+      await open(page)
+      await text(page).fill('class Animal {\n  +nom: String\n}\nAnimal <|-- Chien')
+      await expect(box(page, 'Chien')).toBeVisible()
+      await expect(box(page, 'Cercle')).toHaveCount(0)
+      await text(page).fill('class Animal {\n  +nom: String\n}\nAnimal <|-- Chien\nn’importe quoi\nChat --|> Animal')
+      await expect(page.getByText('Ligne non reconnue')).toBeVisible()
+      await expect(box(page, 'Chat')).toHaveCount(0)
+      await text(page).fill('class Animal {\n  +nom: String\n}\nAnimal <|-- Chien\nChat --|> Animal')
+      await expect(box(page, 'Chat')).toBeVisible()
+    })
+
+    test('un diagramme Mermaid collé tel quel est compris', async ({ page }) => {
+      await open(page)
+      await text(page).fill(
+        ['classDiagram', '    class Compte {', '        <<abstract>>', '        -solde: double', '        +crediter(m: double) void', '    }', '    Compte <|-- Epargne', '    Client "1" --> "0..*" Compte : possède'].join('\n'),
+      )
+      await expect(box(page, 'Epargne')).toBeVisible()
+      await expect(box(page, 'Compte')).toContainText('«abstract»')
+      await expect(diagram(page)).toContainText('possède')
+      await expect(diagram(page)).toContainText('0..*')
+      await expect(page.getByText('Ligne non reconnue')).toHaveCount(0)
+    })
+
+    test('le bouton Classe ajoute une classe, ouvre la fenêtre, et le texte suit', async ({ page }) => {
+      await open(page)
+      await page.getByRole('button', { name: 'Classe', exact: true }).click()
+      const dialog = page.getByRole('dialog')
+      await expect(dialog).toBeVisible()
+      await dialog.getByLabel('Nom de la classe').fill('Panier')
+      await dialog.getByLabel('Attributs').fill('-total: double')
+      await dialog.getByLabel('Méthodes').fill('+vider() void')
+      await dialog.getByRole('button', { name: 'Enregistrer' }).click()
+      await expect(box(page, 'Panier')).toContainText('+vider() void')
+      await expect(text(page)).toHaveValue(/class Panier \{\n {2}-total: double\n {2}\+vider\(\) void\n\}/)
+      await page.keyboard.press('Control+z')
+      await expect(box(page, 'Panier')).toHaveCount(0)
+    })
+
+    test('le bouton Relation relie deux classes sélectionnées par un héritage', async ({ page }) => {
+      await open(page)
+      await text(page).fill('class A\nclass B')
+      await expect(box(page, 'B')).toBeVisible()
+      await box(page, 'A').click()
+      await box(page, 'B').click({ modifiers: ['Shift'] })
+      await page.getByRole('button', { name: 'Relation', exact: true }).click()
+      const dialog = page.getByRole('dialog')
+      await expect(dialog.getByLabel('Nature de la relation')).toHaveValue('inheritance')
+      await dialog.getByLabel('Libellé de la relation').fill('est un')
+      await dialog.getByRole('button', { name: 'Enregistrer' }).click()
+      await expect(text(page)).toHaveValue(/B <\|-- A : est un/)
+      await expect(diagram(page).locator('g[data-id="r:A>B:inheritance"]')).toBeVisible()
+    })
+
+    test('renommer une classe met à jour ses relations, et supprimer demande confirmation', async ({ page }) => {
+      await open(page)
+      await box(page, 'Forme').dblclick()
+      const dialog = page.getByRole('dialog')
+      await dialog.getByLabel('Nom de la classe').fill('Figure')
+      await dialog.getByRole('button', { name: 'Enregistrer' }).click()
+      await expect(text(page)).toHaveValue(/Figure <\|-- Cercle/)
+      await expect(text(page)).not.toHaveValue(/class Forme\b|Forme <\|--|<\|\.\. Forme\b|"0\.\.\*" Forme\b/)
+
+      let asked = ''
+      page.on('dialog', (d) => {
+        asked = d.message()
+        void d.accept()
+      })
+      await box(page, 'Figure').click()
+      await page.keyboard.press('Delete')
+      expect(asked).toContain('relation')
+      await expect(box(page, 'Figure')).toHaveCount(0)
+      await expect(box(page, 'Cercle')).toBeVisible()
+    })
+
+    test('un nom de classe déjà pris ou invalide est refusé', async ({ page }) => {
+      await open(page)
+      await box(page, 'Cercle').dblclick()
+      const dialog = page.getByRole('dialog')
+      await dialog.getByLabel('Nom de la classe').fill('Forme')
+      await expect(dialog.getByRole('alert')).toContainText('déjà')
+      await expect(dialog.getByRole('button', { name: 'Enregistrer' })).toBeDisabled()
+      await dialog.getByLabel('Nom de la classe').fill('Mon cercle')
+      await expect(dialog.getByRole('alert')).toContainText('sans espace')
+      await expect(dialog.getByRole('button', { name: 'Enregistrer' })).toBeDisabled()
+    })
+
+    test('les couleurs des classes et des écritures se personnalisent', async ({ page }) => {
+      await open(page)
+      const palette = page.getByRole('button', { name: 'Couleurs du diagramme' })
+      const dialog = page.getByRole('dialog')
+      await palette.click()
+      expect(await dialog.locator('label span.font-medium').allTextContents()).toEqual(['Classes', 'Relations', 'Écritures'])
+      await dialog.locator('input[type="color"]').first().fill('#ff0000')
+      await dialog.getByRole('button', { name: 'Fermer' }).last().click()
+      await expect(box(page, 'Forme').locator('path[stroke="none"]')).toHaveCSS('fill', 'rgb(255, 0, 0)')
+    })
+
+    test('les exports Mermaid et PlantUML se téléchargent', async ({ page }) => {
+      await open(page)
+      const grab = async (name: string, file: string) => {
+        const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name, exact: true }).click()])
+        expect(download.suggestedFilename()).toBe(file)
+        return readFile((await download.path())!, 'utf-8')
+      }
+      const mermaid = await grab('Mermaid', 'classes.mmd')
+      expect(mermaid).toContain('classDiagram')
+      expect(mermaid).toContain('Forme <|-- Cercle')
+      expect(mermaid).toContain('Dessin "1" o-- "0..*" Forme : contient')
+      const puml = await grab('PlantUML', 'classes.puml')
+      expect(puml).toContain('@startuml')
+      expect(puml).toContain('abstract class Forme {')
+      expect(puml).toContain('Forme <|-- Cercle')
+    })
+
+    test('la sélection n’apparaît pas dans l’image exportée', async ({ page }) => {
+      await open(page)
+      await box(page, 'Forme').click()
+      const ring = diagram(page).locator('.seq-sel-rect').first()
+      await expect(ring).toBeVisible()
+      await page.locator('.vue-flow').first().evaluate((el) => el.classList.add('exporting')) // état pendant la capture
+      await expect(ring).toBeHidden()
+    })
+  })
 })
