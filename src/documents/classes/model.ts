@@ -18,6 +18,9 @@ export interface ClassBox {
   attributes: string[]
   /** Une ligne par méthode (`+calculer(x): int`). */
   methods: string[]
+  /** Position posée à la main (coin haut gauche) ; absente : la disposition automatique place la classe. */
+  x?: number
+  y?: number
 }
 
 /**
@@ -97,7 +100,20 @@ export function relationKeys(relations: Relation[]): string[] {
   })
 }
 
-export const findClass = (doc: ClassDocument, name: string) => doc.classes.find((c) => c.name === name)
+/** Reporte sur `fresh` (issu du texte, qui ne porte pas les positions) celles que `existing` a posées à la main. */
+export function keepPositions(existing: ClassDocument, fresh: ClassDocument): ClassDocument {
+  const placed = new Map(existing.classes.filter((c) => c.x !== undefined && c.y !== undefined).map((c) => [c.name, c]))
+  for (const c of fresh.classes) {
+    const p = placed.get(c.name)
+    if (p && c.x === undefined) {
+      c.x = p.x
+      c.y = p.y
+    }
+  }
+  return fresh
+}
+
+export const findClass =(doc: ClassDocument, name: string) => doc.classes.find((c) => c.name === name)
 
 /** Texte lisible d'une relation (recherche, messages). */
 export const relationLabel = (r: Relation) => `${r.from} → ${r.to}${r.label ? ` : ${r.label}` : ''}`
@@ -128,7 +144,12 @@ export function sanitizeClasses(raw: unknown): ClassDocument {
     const name = str(o.name, 80).trim()
     if (!isValidName(name) || seen.has(name)) continue
     seen.add(name)
-    out.classes.push({ name, kind: CLASS_KINDS.includes(o.kind as ClassKind) ? (o.kind as ClassKind) : 'class', attributes: lines(o.attributes), methods: lines(o.methods) })
+    const box: ClassBox = { name, kind: CLASS_KINDS.includes(o.kind as ClassKind) ? (o.kind as ClassKind) : 'class', attributes: lines(o.attributes), methods: lines(o.methods) }
+    if (typeof o.x === 'number' && typeof o.y === 'number' && Number.isFinite(o.x) && Number.isFinite(o.y)) {
+      box.x = Math.max(0, Math.min(o.x, 100000))
+      box.y = Math.max(0, Math.min(o.y, 100000))
+    }
+    out.classes.push(box)
   }
   if (Array.isArray(r.relations)) {
     for (const x of (r.relations as unknown[]).slice(0, 2000)) {

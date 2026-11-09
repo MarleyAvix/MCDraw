@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { AlertTriangle, CheckCircle2, X } from 'lucide-vue-next'
 import { useClassStore } from './classStore'
+import { keepPositions } from './model'
 import { classesToText, parseClassText } from './text'
 
 const store = useClassStore()
@@ -13,7 +14,8 @@ const focused = ref(false)
 const parsed = computed(() => parseClassText(text.value))
 
 function onInput() {
-  if (!parsed.value.errors.length) store.load(parsed.value.doc)
+  // Le texte ne porte pas les positions : on garde celles posées à la main.
+  if (!parsed.value.errors.length) store.load(keepPositions(store.schema, parsed.value.doc))
 }
 function onBlur() {
   focused.value = false

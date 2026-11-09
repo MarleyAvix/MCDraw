@@ -149,13 +149,33 @@ export const useClassStore = defineStore('classes', () => {
   function setClass(oldName: string, next: ClassBox) {
     const i = doc.value.classes.findIndex((c) => c.name === oldName)
     if (i < 0) return
-    doc.value.classes[i] = next
+    const old = doc.value.classes[i]
+    // La fenêtre d'édition ne connaît pas la position : on garde celle posée à la main.
+    doc.value.classes[i] = old.x !== undefined && old.y !== undefined ? { ...next, x: old.x, y: old.y } : next
     if (oldName !== next.name) {
       for (const r of doc.value.relations) {
         if (r.from === oldName) r.from = next.name
         if (r.to === oldName) r.to = next.name
       }
       selection.value = selection.value.map((k) => (k === classKey(oldName) ? classKey(next.name) : k))
+    }
+  }
+
+  /** Pose des classes à la main (coin haut gauche, jamais en dehors du dessin). */
+  function moveClasses(positions: Record<string, { x: number; y: number }>) {
+    for (const c of doc.value.classes) {
+      const p = positions[c.name]
+      if (!p) continue
+      c.x = Math.round(Math.max(0, p.x))
+      c.y = Math.round(Math.max(0, p.y))
+    }
+  }
+
+  /** Rend toutes les classes à la disposition automatique. */
+  function autoLayout() {
+    for (const c of doc.value.classes) {
+      delete c.x
+      delete c.y
     }
   }
 
@@ -231,7 +251,8 @@ export const useClassStore = defineStore('classes', () => {
 
   function paste(): boolean {
     if (!clipboard) return false
-    const fresh = clipboard.map((c) => ({ ...clone(c), name: uniqueName(c.name) }))
+    // Une copie posée à la main est décalée pour ne pas se superposer à l'original.
+    const fresh = clipboard.map((c) => ({ ...clone(c), name: uniqueName(c.name), ...(c.x !== undefined && c.y !== undefined ? { x: c.x + 30, y: c.y + 30 } : {}) }))
     doc.value.classes.push(...fresh)
     selection.value = fresh.map((c) => classKey(c.name))
     return true
@@ -279,7 +300,7 @@ export const useClassStore = defineStore('classes', () => {
   return {
     doc, selection, editing, showTextPanel, highlightId, view,
     schema, layout, relKeys, selectedClasses, selectedRelations,
-    flash, addClass, setClass, usageOf, removeClasses, addRelation, setRelation, removeRelations, setMeta, removeSelection,
+    flash, addClass, setClass, moveClasses, autoLayout, usageOf, removeClasses, addRelation, setRelation, removeRelations, setMeta, removeSelection,
     copy, paste, duplicate, selectAll, searchIndex, load, importSchema, reset, loadExample,
     undo, redo, canUndo, canRedo,
   }

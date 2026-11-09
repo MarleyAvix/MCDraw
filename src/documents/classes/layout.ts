@@ -165,13 +165,15 @@ export function layoutClasses(doc: ClassDocument): ClassLayout {
   }
 
   const placed = new Map<string, LClass>()
+  /** Centre horizontal que la disposition automatique donne à chaque classe, indépendamment des positions posées à la main. */
+  const autoCenter = new Map<string, number>()
   const rowWidth = (row: ClassBox[]) => row.reduce((s, c) => s + sizes.get(c.name)!.w, 0) + GAP_X * Math.max(0, row.length - 1)
   const totalW = Math.max(MIN_W, ...rows.map(rowWidth))
   let y = MARGIN + (doc.title ? 30 : 0)
   for (const row of rows) {
     // Sous leurs parents quand ils sont connus : on ordonne par position moyenne des parents déjà placés.
     const bary = (c: ClassBox) => {
-      const xs = (parentsOf.get(c.name) ?? []).map((p) => placed.get(p)).filter((p): p is LClass => !!p).map((p) => p.x + p.w / 2)
+      const xs = (parentsOf.get(c.name) ?? []).map((p) => autoCenter.get(p)).filter((p): p is number => p !== undefined)
       return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : Infinity
     }
     const ordered = row.map((c, i) => ({ c, i, b: bary(c) })).sort((a, b) => (a.b === b.b ? a.i - b.i : a.b - b.b)).map((e) => e.c)
@@ -179,8 +181,12 @@ export function layoutClasses(doc: ClassDocument): ClassLayout {
     let rowH = 0
     for (const c of ordered) {
       const s = sizes.get(c.name)!
-      const methodsY = y + s.headH + (c.attributes.length ? c.attributes.length * ROW_H + PAD : PAD)
-      placed.set(c.name, { key: classKey(c.name), name: c.name, kind: c.kind, stereotype: s.stereotype, x, y, w: s.w, h: s.h, headH: s.headH, attributes: c.attributes, methods: c.methods, methodsY })
+      // Une position posée à la main l'emporte sur la disposition automatique (qui garde néanmoins la place de la classe).
+      const px = c.x ?? x
+      const py = c.y ?? y
+      const methodsY = py + s.headH + (c.attributes.length ? c.attributes.length * ROW_H + PAD : PAD)
+      placed.set(c.name, { key: classKey(c.name), name: c.name, kind: c.kind, stereotype: s.stereotype, x: px, y: py, w: s.w, h: s.h, headH: s.headH, attributes: c.attributes, methods: c.methods, methodsY })
+      autoCenter.set(c.name, x + s.w / 2)
       x += s.w + GAP_X
       rowH = Math.max(rowH, s.h)
     }
@@ -233,7 +239,7 @@ export function layoutClasses(doc: ClassDocument): ClassLayout {
 
   const list = [...placed.values()]
   const width = Math.max(totalW, ...list.map((c) => c.x + c.w - MARGIN)) + MARGIN * 2 + (relations.some((r) => r.from === r.to) ? 120 : 0)
-  const height = Math.max(y - GAP_Y, MARGIN) + MARGIN
+  const height = Math.max(y - GAP_Y, MARGIN, ...list.map((c) => c.y + c.h)) + MARGIN
   return { title: doc.title ? { x: width / 2, y: MARGIN, text: doc.title } : undefined, classes: list, relations, width, height }
 }
 

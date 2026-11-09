@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useVueFlow } from '@vue-flow/core'
 import { useClassStore } from './classStore'
-import { PAD, ROW_H, type LText } from './layout'
+import { PAD, ROW_H, type LClass, type LText } from './layout'
 
 const store = useClassStore()
 const L = computed(() => store.layout)
@@ -14,6 +15,45 @@ function pick(key: string, e: MouseEvent) {
   store.selection = additive ? (has ? store.selection.filter((k) => k !== key) : [...store.selection, key]) : [key]
 }
 const edit = (key: string) => (store.editing = key)
+
+// --- Déplacement à la main -------------------------------------------------------------
+// Glisser une classe la pose où l'on veut (toutes les classes sélectionnées bougent ensemble) ; en dessous de 4 px, c'est un simple clic.
+const { viewport } = useVueFlow('class-diagram')
+interface Drag { sx: number; sy: number; origins: Record<string, { x: number; y: number }>; moved: boolean }
+let drag: Drag | null = null
+let justDragged = false
+
+function down(c: LClass, e: PointerEvent) {
+  if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) return
+  if (!selected.value.has(c.key)) store.selection = [c.key]
+  const origins: Drag['origins'] = {}
+  for (const l of L.value.classes) if (selected.value.has(l.key)) origins[l.name] = { x: l.x, y: l.y }
+  drag = { sx: e.clientX, sy: e.clientY, origins, moved: false }
+  ;(e.currentTarget as Element).setPointerCapture(e.pointerId)
+}
+function move(e: PointerEvent) {
+  if (!drag) return
+  const dx = e.clientX - drag.sx
+  const dy = e.clientY - drag.sy
+  if (!drag.moved && Math.hypot(dx, dy) < 4) return
+  drag.moved = true
+  const zoom = viewport.value.zoom || 1
+  store.moveClasses(Object.fromEntries(Object.entries(drag.origins).map(([n, o]) => [n, { x: o.x + dx / zoom, y: o.y + dy / zoom }])))
+}
+function up(e: PointerEvent) {
+  if (!drag) return
+  const el = e.currentTarget as Element
+  if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId)
+  // Le clic qui suit un déplacement ne doit ni sélectionner autre chose ni ouvrir la fenêtre.
+  if (drag.moved) {
+    justDragged = true
+    setTimeout(() => (justDragged = false), 0)
+  }
+  drag = null
+}
+function clickClass(key: string, e: MouseEvent) {
+  if (!justDragged) pick(key, e)
+}
 
 const FILL = { fill: 'var(--entity-bg, var(--color-indigo-100))' }
 const BODY = { fill: 'color-mix(in srgb, var(--entity-bg, var(--color-indigo-100)) 30%, var(--color-slate-50))' }
@@ -38,7 +78,18 @@ const hollowFill = 'var(--color-slate-50)'
     </g>
 
     <!-- Classes -->
-    <g v-for="c in L.classes" :key="c.key" :data-id="c.key" class="cursor-pointer" @click.stop="pick(c.key, $event)" @dblclick.stop="edit(c.key)">
+    <g
+      v-for="c in L.classes"
+      :key="c.key"
+      :data-id="c.key"
+      class="nopan cursor-grab touch-none active:cursor-grabbing"
+      @pointerdown.stop="down(c, $event)"
+      @pointermove="move"
+      @pointerup="up"
+      @pointercancel="up"
+      @click.stop="clickClass(c.key, $event)"
+      @dblclick.stop="edit(c.key)"
+    >
       <rect v-if="selected.has(c.key) || flashed(c.key)" :x="c.x - 3" :y="c.y - 3" :width="c.w + 6" :height="c.h + 6" rx="7" fill="none" stroke-width="2" :class="flashed(c.key) ? 'seq-flash-rect' : 'seq-sel-rect'" />
       <rect :x="c.x" :y="c.y" :width="c.w" :height="c.h" rx="5" stroke-width="1.5" class="stroke-slate-600" :style="BODY" />
       <path :d="`M${c.x},${c.y + c.headH} V${c.y + 5} a5,5 0 0 1 5,-5 H${c.x + c.w - 5} a5,5 0 0 1 5,5 V${c.y + c.headH} Z`" :style="FILL" stroke="none" />

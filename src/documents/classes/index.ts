@@ -1,6 +1,6 @@
 import { computed, toRef, type Ref } from 'vue'
 import { useVueFlow } from '@vue-flow/core'
-import { Boxes, ClipboardCopy, FileCode2, FileText, Maximize2, RotateCcw, SlidersHorizontal, Spline, SquarePlus, TextCursorInput } from 'lucide-vue-next'
+import { Boxes, ClipboardCopy, FileCode2, FileText, LayoutGrid, Maximize2, RotateCcw, SlidersHorizontal, Spline, SquarePlus, TextCursorInput } from 'lucide-vue-next'
 import type { ActionContext, DocumentApi, DocumentType } from '../../core/documentType'
 import { downloadBlob } from '../../composables/useFileIO'
 import { CLASS_EXAMPLES, useClassStore } from './classStore'
@@ -107,6 +107,16 @@ export const classesDocument: DocumentType<ClassDocument> = {
       group: 'tools',
       run: () => { const s = useClassStore(); s.showTextPanel = !s.showTextPanel },
       pressed: () => useClassStore().showTextPanel,
+    },
+    {
+      id: 'auto-layout',
+      label: 'Organiser',
+      title: 'Replacer toutes les classes automatiquement (annule les déplacements à la main)',
+      icon: LayoutGrid,
+      compact: true,
+      group: 'tools',
+      run: () => useClassStore().autoLayout(),
+      disabled: () => !useClassStore().doc.classes.some((c) => c.x !== undefined),
     },
     { id: 'settings', label: 'Réglages', title: 'Titre du diagramme', icon: SlidersHorizontal, compact: true, group: 'tools', run: () => { useClassStore().editing = 'doc' } },
     { id: 'fit', label: 'Recadrer', title: 'Afficher tout le diagramme', icon: Maximize2, compact: true, run: () => void useVueFlow('class-diagram').fitView({ padding: 0.28, duration: 300 }) },

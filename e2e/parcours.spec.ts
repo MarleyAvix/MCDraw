@@ -995,6 +995,41 @@ test.describe('parcours principaux', () => {
       expect(puml).toContain('Forme <|-- Cercle')
     })
 
+    test('les classes se déplacent à la glisse, sans ouvrir la fenêtre, et « Organiser » les replace', async ({ page }) => {
+      await open(page)
+      const pos = async (n: string) => (await box(page, n).locator('rect.stroke-slate-600').boundingBox())!
+      const before = await pos('Cercle')
+      const other = await pos('Rectangle')
+      const organise = page.getByRole('button', { name: 'Organiser', exact: true })
+      await expect(organise).toBeDisabled()
+
+      const from = { x: before.x + before.width / 2, y: before.y + before.height / 2 }
+      await page.mouse.move(from.x, from.y)
+      await page.mouse.down()
+      await page.mouse.move(from.x + 60, from.y + 20, { steps: 6 })
+      await page.mouse.move(from.x + 120, from.y + 40, { steps: 6 })
+      await page.mouse.up()
+
+      const after = await pos('Cercle')
+      expect(after.x - before.x).toBeGreaterThan(80)
+      expect(after.y - before.y).toBeGreaterThan(20)
+      expect(await pos('Rectangle')).toEqual(other) // les autres classes ne bougent pas
+      await expect(page.getByRole('dialog')).toHaveCount(0)
+      await expect(box(page, 'Cercle').locator('.seq-sel-rect')).toBeVisible() // la classe glissée est sélectionnée
+      await expect(text(page)).toHaveValue(/class Cercle \{/) // le texte ne porte pas les positions
+
+      // Éditer le texte garde la position posée à la main.
+      await text(page).fill((await text(page).inputValue()) + '\nclass Neuve')
+      await expect(box(page, 'Neuve')).toBeVisible()
+      expect((await pos('Cercle')).x).toBeCloseTo(after.x, 0)
+
+      await expect(organise).toBeEnabled()
+      expect((await pos('Cercle')).y).not.toBeCloseTo((await pos('Rectangle')).y, 0)
+      await organise.click()
+      await expect(organise).toBeDisabled()
+      expect((await pos('Cercle')).y).toBeCloseTo((await pos('Rectangle')).y, 0) // de nouveau sur la même rangée
+    })
+
     test('la sélection n’apparaît pas dans l’image exportée', async ({ page }) => {
       await open(page)
       await box(page, 'Forme').click()

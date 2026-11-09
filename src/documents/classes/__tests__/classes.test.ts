@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { layoutClasses } from '../layout'
 import { classesToMermaid } from '../mermaid'
 import { classesToPlantUml } from '../plantuml'
-import { isValidName, relationKeys, sanitizeClasses } from '../model'
+import { createPinia, setActivePinia } from 'pinia'
+import { isValidName, keepPositions, relationKeys, sanitizeClasses } from '../model'
 import { classesToText, parseClassText } from '../text'
-import { CLASS_EXAMPLES } from '../classStore'
+import { CLASS_EXAMPLES, useClassStore } from '../classStore'
 
 const parse = (t: string) => {
   const r = parseClassText(t)
@@ -104,6 +105,44 @@ describe('disposition', () => {
     const l = layoutClasses(parse('A <|-- B\nB <|-- A\nC --> C'))
     expect(l.classes).toHaveLength(3)
     expect(l.relations.find((r) => r.from === 'C')!.d).toContain('H')
+  })
+})
+
+describe('positions posées à la main', () => {
+  it('l’emportent sur la disposition automatique sans déplacer les autres classes', () => {
+    const doc = parse(CLASS_EXAMPLES[0].text)
+    const before = layoutClasses(doc)
+    doc.classes.find((c) => c.name === 'Cercle')!.x = 900
+    doc.classes.find((c) => c.name === 'Cercle')!.y = 40
+    const after = layoutClasses(doc)
+    const at = (l: typeof before, n: string) => l.classes.find((c) => c.name === n)!
+    expect([at(after, 'Cercle').x, at(after, 'Cercle').y]).toEqual([900, 40])
+    for (const n of ['Forme', 'Rectangle', 'Dessin', 'Dessinable']) expect([at(after, n).x, at(after, n).y], n).toEqual([at(before, n).x, at(before, n).y])
+    // Les relations suivent la classe déplacée, et le dessin grandit pour la contenir.
+    expect(after.relations.find((r) => r.key === 'r:Cercle>Forme:inheritance')!.d).not.toBe(before.relations.find((r) => r.key === 'r:Cercle>Forme:inheritance')!.d)
+    expect(after.width).toBeGreaterThan(900)
+  })
+
+  it('survivent à la saisie texte, au renommage et à l’import, et s’effacent avec « Organiser »', () => {
+    const existing = parse('class A\nclass B')
+    existing.classes[0].x = 120
+    existing.classes[0].y = 80
+    const fresh = keepPositions(existing, parse('class A\nclass B\nclass C'))
+    expect(fresh.classes.map((c) => [c.x, c.y])).toEqual([[120, 80], [undefined, undefined], [undefined, undefined]])
+
+    const s = sanitizeClasses({ classes: [{ name: 'A', x: 10.4, y: -5 }, { name: 'B', x: 'non', y: 3 }], relations: [] })
+    expect(s.classes[0]).toMatchObject({ x: 10.4, y: 0 })
+    expect(s.classes[1].x).toBeUndefined()
+
+    setActivePinia(createPinia())
+    const store = useClassStore()
+    store.importSchema({ classes: [{ name: 'A' }, { name: 'B' }], relations: [] })
+    store.moveClasses({ A: { x: 33.6, y: -10 } })
+    expect(store.doc.classes[0]).toMatchObject({ x: 34, y: 0 })
+    store.setClass('A', { name: 'Z', kind: 'class', attributes: [], methods: [] })
+    expect(store.doc.classes[0]).toMatchObject({ name: 'Z', x: 34, y: 0 })
+    store.autoLayout()
+    expect(store.doc.classes.every((c) => c.x === undefined && c.y === undefined)).toBe(true)
   })
 })
 
