@@ -142,3 +142,11 @@ input[type='text'], input:not([type]) { cursor: text; }
 .exporting .seq-sel-rect, .exporting .seq-flash-rect { display: none; }
 /* Le diagramme de séquence est un seul nœud non sélectionnable : Vue Flow le rendrait sinon insensible à la souris, alors que ses éléments se cliquent. */
 .vue-flow__node-sequence { pointer-events: all !important; }
+
+/* Diagramme d'états : transitions possibles et état courant pendant la simulation. */
+.stroke-active { stroke: var(--accent); }
+.fill-active { fill: var(--accent); }
+.option-label { fill: rgb(56 139 253 / 0.18); stroke: var(--accent); }
+.sim-ring { stroke: var(--accent); filter: drop-shadow(0 0 4px var(--accent)); }
+.exporting .sim-ring { display: none; }
+.vue-flow__node-statechart { pointer-events: all !important; }
